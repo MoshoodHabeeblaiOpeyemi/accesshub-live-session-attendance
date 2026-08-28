@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="/IMG-20260824-WA0035.jpg">
+    <link rel="stylesheet" href="style.css">
+    <title>AccessHub | Student Check-In</title>
+</head>
+
+<body>
+
+    <!-- 🧭 NAVBAR -->
+    <header class="navbar">
+        <a class="brand" href="index.html">
+            <img src="/IMG-20260824-WA0035.jpg" alt="AccessHub logo">
+            <span>Access<span>Hub</span></span>
+        </a>
+    </header>
+
+    <main>
+        <!-- 🎓 HERO SECTION -->
+        <section class="hero">
+            <h1>Live Session Check-In 🎓</h1>
+            <p>Welcome! Enter your registered email and the live code provided by your instructor to mark yourself
+                present.</p>
+        </section>
+
+        <!-- 📝 CHECK-IN FORM -->
+        <section class="registration" id="studentLoginSection">
+            <div class="card-header">
+                <h2>Student Portal 🚪</h2>
+            </div>
+            <form id="studentCheckInForm">
+                <!-- NEW NAME FIELD! 📛 -->
+                <div class="field">
+                    <label for="studentName">Full Name</label>
+                    <input id="studentName" type="text" placeholder="e.g. Jane Doe" required>
+                </div>
+
+                <div class="field">
+                    <label for="studentEmail">Registered Email</label>
+                    <input id="studentEmail" type="email" placeholder="student@example.com" required>
+                </div>
+
+                <div class="field">
+                    <label for="liveAccessCode">Live Access Code</label>
+                    <input id="liveAccessCode" type="text" placeholder="e.g. 8492" required
+                        style="font-size: 1.2rem; letter-spacing: 3px; text-transform: uppercase; font-weight: bold; color: var(--teal); text-align: center;">
+                </div>
+
+                <button id="checkInBtn" type="submit">Mark Me Present ✅</button>
+            </form>
+        </section>
+    </main>
+
+    <!-- 🦶 FOOTER -->
+    <footer>
+        <a class="brand" href="index.html">
+            <img src="/IMG-20260824-WA0035.jpg" alt="AccessHub logo">
+            <span>Access<span>Hub</span></span>
+        </a>
+        <small>© 2026 AccessHub. All rights reserved.</small>
+    </footer>
+
+    <!-- We will build this brain next! 🧠 -->
+    <script type="module" src="student.js"></script>
+</body>
+
+</html>

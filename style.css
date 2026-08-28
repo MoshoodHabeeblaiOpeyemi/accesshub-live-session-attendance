@@ -1,0 +1,358 @@
+/* =========================================
+   1. GLOBAL VARIABLES & RESET 🌍
+   ========================================= */
+:root {
+  --navy: #0A2540;
+  --teal: #00C2A8;
+  --light: #F6FAFC;
+  --danger: #E63946;
+  --muted: #6B7C93;
+  --border: #E6EBED;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+
+body {
+  background-color: var(--light);
+  color: var(--navy);
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+/* Respect users who've asked their OS to cut motion — always do this */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: scale(0.9); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+@keyframes softPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(0, 194, 168, 0.35); }
+  50%      { box-shadow: 0 0 0 14px rgba(0, 194, 168, 0); }
+}
+
+/* =========================================
+   2. NAVIGATION & FOOTER 🧭
+   ========================================= */
+.navbar {
+  background: white;
+  padding: 15px 5%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+  position: sticky;
+  top: 0;
+  z-index: 500;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--navy);
+  transition: opacity 0.2s ease;
+}
+
+.brand:active {
+  opacity: 0.7;
+}
+
+.brand img {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  transition: transform 0.3s ease;
+}
+
+@media (hover: hover) {
+  .brand:hover img {
+    transform: rotate(-6deg) scale(1.05);
+  }
+}
+
+.brand span span {
+  color: var(--teal);
+}
+
+footer {
+  margin-top: auto;
+  background: white;
+  padding: 30px 5%;
+  text-align: center;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 15px;
+}
+
+/* =========================================
+   3. SHARED COMPONENTS (Forms, Cards, Buttons) 🧱
+   ========================================= */
+.hero {
+  text-align: center;
+  padding: 60px 20px 40px;
+  animation: fadeInUp 0.5s ease both;
+}
+
+.hero h1 {
+  font-size: 2.5rem;
+  margin-bottom: 10px;
+  letter-spacing: -0.5px;
+}
+
+.hero p {
+  color: var(--muted);
+  font-size: 1.1rem;
+}
+
+.registration {
+  background: white;
+  width: 90%; /* 👈 Lets it shrink fluidly and leaves a nice margin on mobile */
+  max-width: 700px; /* 👈 Makes it much wider on desktop! (Upgraded from 500px) */
+  margin: 0 auto 60px;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+  overflow: hidden;
+  animation: fadeInUp 0.5s ease 0.1s both;
+  transition: box-shadow 0.3s ease, transform 0.3s ease;
+}
+
+@media (hover: hover) {
+  .registration:hover {
+    box-shadow: 0 8px 28px rgba(0,0,0,0.1);
+    transform: translateY(-2px);
+  }
+}
+
+.card-header {
+  background: var(--navy);
+  background: linear-gradient(135deg, var(--navy) 0%, #123a5e 100%);
+  color: white;
+  padding: 20px;
+  text-align: center;
+}
+
+form {
+  padding: 30px;
+}
+
+.field {
+  margin-bottom: 20px;
+}
+
+.field label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.field input {
+  width: 100%;
+  padding: 12px 15px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 1rem;
+  transition: border-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+.field input:focus {
+  outline: none;
+  border-color: var(--teal);
+  box-shadow: 0 0 0 4px rgba(0, 194, 168, 0.15);
+}
+
+button {
+  width: 100%;
+  padding: 15px;
+  background: var(--teal);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 1.1rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: opacity 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
+}
+
+@media (hover: hover) {
+  button:hover:not(:disabled) {
+    opacity: 0.92;
+    box-shadow: 0 6px 16px rgba(0, 194, 168, 0.3);
+  }
+}
+
+button:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+button:disabled {
+  background: var(--muted);
+  cursor: not-allowed;
+}
+
+/* =========================================
+   4. ADMIN DASHBOARD SPECIFICS 👑
+   ========================================= */
+.dashboard-container {
+  max-width: 900px;
+  margin: 40px auto;
+  padding: 0 20px;
+  display: none; /* Hidden until authenticated */
+}
+
+.stats-card {
+  background: white;
+  border: 2px solid var(--teal);
+  border-radius: 20px;
+  padding: 30px;
+  text-align: center;
+  margin-bottom: 30px;
+  box-shadow: 0 10px 30px rgba(0, 194, 168, 0.15);
+  animation: fadeInUp 0.5s ease 0.05s both;
+}
+
+.count-display {
+  font-size: 5rem;
+  font-weight: 900;
+  color: var(--navy);
+  line-height: 1;
+  margin: 10px 0;
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.code-display {
+  font-size: 3.5rem;
+  letter-spacing: 8px;
+  color: var(--teal);
+  font-weight: 900;
+  margin: 20px 0;
+  padding: 15px;
+  background: rgba(0, 194, 168, 0.1);
+  border-radius: 15px;
+  display: inline-block;
+  animation: softPulse 2.4s ease-in-out infinite;
+}
+
+.attendee-list { 
+  list-style: none; 
+  padding: 0; 
+  margin-top: 20px; 
+  text-align: left; 
+}
+
+.attendee-list li { 
+  background: var(--light); 
+  margin-bottom: 10px; 
+  padding: 15px 20px; 
+  border-radius: 8px; 
+  border: 1px solid var(--border); 
+  display: flex; 
+  align-items: center; 
+  gap: 15px; 
+  font-weight: bold;
+  animation: fadeInUp 0.35s ease both;
+  transition: border-color 0.2s ease;
+}
+
+@media (hover: hover) {
+  .attendee-list li:hover {
+    border-color: var(--teal);
+  }
+}
+
+.attendee-list li::before { 
+  content: '✅'; 
+  font-size: 1.2rem;
+}
+
+/* =========================================
+   5. TOAST NOTIFICATIONS (Premium Pop-ups!) 🍞✨
+   ========================================= */
+#toastContainer {
+  position: fixed;
+  bottom: 40px;
+  right: 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  z-index: 1000;
+  pointer-events: none; /* Lets clicks pass through */
+}
+
+.toast {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px); /* Glassmorphism effect! 🧊 */
+  border-left: 6px solid var(--teal);
+  padding: 18px 24px;
+  border-radius: 12px;
+  box-shadow: 0 15px 35px rgba(0, 10, 30, 0.15), 0 5px 15px rgba(0, 194, 168, 0.1);
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  line-height: 1.4;
+  animation: slideIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+@keyframes slideIn {
+  from { transform: translateX(120%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes slideOut {
+  from { transform: translateX(0); opacity: 1; }
+  to { transform: translateX(120%); opacity: 0; }
+}
+
+/* Toasts pile up fast during a busy check-in — keep it from swallowing the screen or tanking perf on low-end phones */
+#toastContainer .toast:nth-child(n+4) {
+  display: none;
+}
+
+@media (max-width: 600px) {
+  #toastContainer {
+    left: 16px;
+    right: 16px;
+    bottom: 16px;
+  }
+
+  .toast {
+    backdrop-filter: blur(6px); /* cheaper blur radius for weaker GPUs */
+  }
+
+  .count-display {
+    font-size: 3.5rem;
+  }
+
+  .code-display {
+    font-size: 2.4rem;
+    letter-spacing: 5px;
+  }
+
+  .hero h1 {
+    font-size: 1.9rem;
+  }
+}
