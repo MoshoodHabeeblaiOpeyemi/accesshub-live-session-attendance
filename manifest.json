@@ -1,0 +1,16 @@
+{
+  "name": "AccessHub",
+  "short_name": "AccessHub",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F6FAFC",
+  "theme_color": "#00C2A8",
+  "icons": [
+    {
+      "src": "/IMG-20260824-WA0035.jpg",
+      "sizes": "192x192 512x512",
+      "type": "image/jpeg",
+      "purpose": "any maskable"
+    }
+  ]
+}
