@@ -1,7 +1,7 @@
 // 1. IMPORT FIREBASE TOOLS 🧰
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
-import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
-import { getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager, doc, setDoc, onSnapshot, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+import { getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager, doc, setDoc, getDoc, onSnapshot, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
 // 2. YOUR FIREBASE CONFIGURATION 🔗
 const firebaseConfig = {
@@ -54,76 +54,28 @@ let currentSessionId = "";
 let knownAttendees = new Set();
 
 // ==========================================
-// 🔄 TOGGLE BETWEEN LOGIN & SIGN UP MODES
+// 🧠 AUTO-LOGIN MEMORY (Handles Page Refreshes!)
 // ==========================================
-authModeToggleBtn.addEventListener("click", () => {
-  isSignUpMode = !isSignUpMode;
-  
-  if (isSignUpMode) {
-    authCardTitle.textContent = "Instructor Sign Up 🚀";
-    authSubtitle.textContent = "Create an account to host your own live attendance sessions.";
-    nameFieldContainer.style.display = "block";
-    instructorNameInput.required = true;
-    adminLoginBtn.textContent = "Create Account ✨";
-    toggleText.textContent = "Already have an account?";
-    authModeToggleBtn.textContent = "Log in";
-  } else {
-    authCardTitle.textContent = "Instructor Portal 🔐";
-    authSubtitle.textContent = "Authenticate to access your command center.";
-    nameFieldContainer.style.display = "none";
-    instructorNameInput.required = false;
-    adminLoginBtn.textContent = "Secure Login 🛡️";
-    toggleText.textContent = "New instructor?";
-    authModeToggleBtn.textContent = "Create an account";
-  }
-});
-
-// ==========================================
-// 🔐 AUTH GATE: LOGIN OR SIGN UP
-// ==========================================
-adminLoginForm.addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const email = document.getElementById("adminEmail").value.trim();
-  const password = document.getElementById("adminPassword").value.trim();
-  const instructorName = instructorNameInput.value.trim();
-
-  adminLoginBtn.textContent = isSignUpMode ? "Creating Account... ⏳" : "Authenticating... ⏳";
-  adminLoginBtn.disabled = true;
-
-  try {
-    let userCredential;
-
-    if (isSignUpMode) {
-      userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      await setDoc(doc(db, "instructors", userCredential.user.uid), {
-        name: instructorName,
-        email: email,
-        createdAt: new Date().toISOString()
-      });
-    } else {
-      userCredential = await signInWithEmailAndPassword(auth, email, password);
-    }
-    
-    currentSessionId = userCredential.user.uid;
-
-    // Success! Hide auth gate, reveal the command center 🎛️
+onAuthStateChanged(auth, async (user) => {
+  if (user) {
+    // User is already logged in! Skip auth gate.
+    currentSessionId = user.uid;
     adminLoginSection.style.display = "none";
     adminDashboard.style.display = "block";
     logoutBtn.style.display = "inline-block";
-
-    // 🔍 CHECK IF THIS INSTRUCTOR ALREADY HAS AN ACTIVE OPEN SESSION! 🏢
-    await restoreExistingSession(currentSessionId);
     
-  } catch (error) {
-    console.error("Auth Failed:", error);
-    alert("❌ Authentication Error: " + error.message);
-    adminLoginBtn.textContent = isSignUpMode ? "Create Account ✨" : "Secure Login 🛡️";
-    adminLoginBtn.disabled = false;
+    // Restore their active class session if they have one!
+    await restoreExistingSession(currentSessionId);
+  } else {
+    // User is signed out. Show auth gate.
+    adminDashboard.style.display = "none";
+    adminLoginSection.style.display = "block";
+    logoutBtn.style.display = "none";
   }
 });
 
 // ==========================================
-// 🔄 RESTORE SESSION IF ALREADY ACTIVE 🕵️‍♂️
+// 🔄 RESTORE SESSION FUNCTION 🕵️‍♂️
 // ==========================================
 async function restoreExistingSession(instructorId) {
   try {
@@ -154,14 +106,71 @@ async function restoreExistingSession(instructorId) {
 }
 
 // ==========================================
+// 🔄 TOGGLE BETWEEN LOGIN & SIGN UP MODES
+// ==========================================
+authModeToggleBtn.addEventListener("click", () => {
+  isSignUpMode = !isSignUpMode;
+  
+  if (isSignUpMode) {
+    authCardTitle.textContent = "Instructor Sign Up 🚀";
+    authSubtitle.textContent = "Create an account to host your own live attendance sessions.";
+    nameFieldContainer.style.display = "block";
+    instructorNameInput.required = true;
+    adminLoginBtn.textContent = "Create Account ✨";
+    toggleText.textContent = "Already have an account?";
+    authModeToggleBtn.textContent = "Log in";
+  } else {
+    authCardTitle.textContent = "Instructor Portal 🔐";
+    authSubtitle.textContent = "Authenticate to access your command center.";
+    nameFieldContainer.style.display = "none";
+    instructorNameInput.required = false;
+    adminLoginBtn.textContent = "Secure Login 🛡️";
+    toggleText.textContent = "New instructor?";
+    authModeToggleBtn.textContent = "Create an account";
+  }
+});
+
+// ==========================================
+// 🔐 MANUAL AUTH GATE: LOGIN OR SIGN UP
+// ==========================================
+adminLoginForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const email = document.getElementById("adminEmail").value.trim();
+  const password = document.getElementById("adminPassword").value.trim();
+  const instructorName = instructorNameInput.value.trim();
+
+  adminLoginBtn.textContent = isSignUpMode ? "Creating Account... ⏳" : "Authenticating... ⏳";
+  adminLoginBtn.disabled = true;
+
+  try {
+    let userCredential;
+
+    if (isSignUpMode) {
+      userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      await setDoc(doc(db, "instructors", userCredential.user.uid), {
+        name: instructorName,
+        email: email,
+        createdAt: new Date().toISOString()
+      });
+    } else {
+      userCredential = await signInWithEmailAndPassword(auth, email, password);
+    }
+    // Note: onAuthStateChanged will automatically handle the UI transition from here!
+  } catch (error) {
+    console.error("Auth Failed:", error);
+    alert("❌ Authentication Error: " + error.message);
+    adminLoginBtn.textContent = isSignUpMode ? "Create Account ✨" : "Secure Login 🛡️";
+    adminLoginBtn.disabled = false;
+  }
+});
+
+// ==========================================
 // 🚪 ADMIN LOGOUT LOGIC
 // ==========================================
 logoutBtn.addEventListener("click", async () => {
   try {
     await signOut(auth);
-    adminDashboard.style.display = "none";
-    adminLoginSection.style.display = "block";
-    logoutBtn.style.display = "none";
+    // UI reset handled by onAuthStateChanged, but we clear inputs here:
     adminLoginForm.reset();
     adminLoginBtn.textContent = "Secure Login 🛡️";
     adminLoginBtn.disabled = false;
