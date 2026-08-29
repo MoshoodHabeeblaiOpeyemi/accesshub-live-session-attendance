@@ -1,6 +1,6 @@
 // 1. IMPORT FIREBASE TOOLS 🧰
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
-import { getFirestore, collection, query, where, getDocs, addDoc, setDoc, doc } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+import { getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager, collection, query, where, getDocs, addDoc } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
 // 2. YOUR FIREBASE CONFIGURATION 🔗
 const firebaseConfig = {
@@ -12,9 +12,11 @@ const firebaseConfig = {
   appId: "1:684977293672:web:8c57936adc38a48d032edd"
 };
 
-// 3. INITIALIZE FIREBASE 🚀
+// 3. INITIALIZE FIREBASE & OFFLINE PERSISTENCE 🚀💾
 const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
+const db = initializeFirestore(app, {
+  localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
+});
 
 // 4. GRAB UI ELEMENTS 🎯
 const form = document.getElementById("studentCheckInForm");
@@ -28,6 +30,16 @@ const heroText = document.querySelector(".hero p");
 form.addEventListener("submit", async (e) => {
   e.preventDefault();
   
+  // ⏱️ RATE LIMITER: Prevent spamming check-ins (5-second cooldown) ⏱️
+  const lastAttempt = localStorage.getItem("last_checkin_attempt");
+  const now = Date.now();
+  if (lastAttempt && now - lastAttempt < 5000) {
+    alert("⏳ Please wait a few seconds before trying again.");
+    resetButton();
+    return;
+  }
+  localStorage.setItem("last_checkin_attempt", now);
+
   const nameInput = document.getElementById("studentName");
   const emailInput = document.getElementById("studentEmail");
   const codeInput = document.getElementById("liveAccessCode");
@@ -38,11 +50,12 @@ form.addEventListener("submit", async (e) => {
 
   // 1. STRICT FORMAT VALIDATION 🔍
   
-  // Name Check: At least 2 characters, only letters, spaces, hyphens, and apostrophes (No malicious scripts/symbols)
+  // Name Check: 2 to 50 characters, letters, spaces, hyphens, and apostrophes only 📛
   const nameRegex = /^[a-zA-Z\s'-]{2,50}$/;
   if (!nameRegex.test(name)) {
     alert("❌ Please enter a valid full name (letters and spaces only, 2-50 characters).");
     nameInput.focus();
+    resetButton();
     return;
   }
 
@@ -51,6 +64,7 @@ form.addEventListener("submit", async (e) => {
   if (!emailRegex.test(email)) {
     alert("❌ Please enter a valid email address (e.g., student@example.com).");
     emailInput.focus();
+    resetButton();
     return;
   }
 
@@ -59,6 +73,7 @@ form.addEventListener("submit", async (e) => {
   if (!codeRegex.test(code)) {
     alert("❌ Invalid Access Code format. The live code must be exactly 4 digits.");
     codeInput.focus();
+    resetButton();
     return;
   }
 
@@ -84,6 +99,14 @@ form.addEventListener("submit", async (e) => {
     const sessionData = sessionDoc.data();
     const instructorId = sessionData.instructorId;
 
+    // Optional: Auto-expiry check (Reject sessions older than 3 hours) ⏰
+    const threeHoursAgo = new Date(Date.now() - (3 * 60 * 60 * 1000)).toISOString();
+    if (sessionData.createdAt && sessionData.createdAt < threeHoursAgo) {
+      alert("❌ This active session has expired. Please ask your instructor for a fresh code.");
+      resetButton();
+      return;
+    }
+
     // 3. AIRTIGHT ANTI-DUPLICATE CHECK (Can someone register twice? NOPE! 🛑)
     const duplicateQuery = query(
       collection(db, "live_attendees"), 
@@ -108,7 +131,7 @@ form.addEventListener("submit", async (e) => {
       timestamp: new Date().toISOString()
     });
 
-    // 5. SUCCESS UI 🎉
+    // 5. SUCCESS UI & RESET OPTION 🎉
     studentLoginSection.innerHTML = `
       <div style="padding: 40px; text-align: center;">
         <h2 style="font-size: 5rem; margin-bottom: 20px; animation: fadeIn 0.5s ease;">✅</h2>

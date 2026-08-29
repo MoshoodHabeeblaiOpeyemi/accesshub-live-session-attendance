@@ -1,7 +1,7 @@
 // 1. IMPORT FIREBASE TOOLS 🧰
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
-import { getFirestore, doc, setDoc, getDoc, onSnapshot, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+import { getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager, doc, setDoc, onSnapshot, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
 // 2. YOUR FIREBASE CONFIGURATION 🔗
 const firebaseConfig = {
@@ -13,10 +13,12 @@ const firebaseConfig = {
   appId: "1:684977293672:web:8c57936adc38a48d032edd"
 };
 
-// 3. INITIALIZE FIREBASE 🚀
+// 3. INITIALIZE FIREBASE & OFFLINE PERSISTENCE 🚀💾
 const app = initializeApp(firebaseConfig);
+const db = initializeFirestore(app, {
+  localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
+});
 const auth = getAuth(app);
-const db = getFirestore(app);
 
 // 4. GRAB UI ELEMENTS 🎯
 const adminLoginSection = document.getElementById("adminLoginSection");
@@ -43,7 +45,7 @@ const toastContainer = document.getElementById("toastContainer");
 // Global states
 let isSignUpMode = false;
 let currentLiveCode = "";
-let currentSessionId = ""; // Will be set to the instructor's unique UID!
+let currentSessionId = ""; 
 let knownAttendees = new Set();
 
 // ==========================================
@@ -90,7 +92,7 @@ adminLoginForm.addEventListener("submit", async (e) => {
       // 1. Create a brand new instructor account in Firebase Auth ✨
       userCredential = await createUserWithEmailAndPassword(auth, email, password);
       
-      // 2. Save their profile info in a "instructors" collection 🗄️
+      // 2. Save their profile info in the "instructors" collection 🗄️
       await setDoc(doc(db, "instructors", userCredential.user.uid), {
         name: instructorName,
         email: email,
@@ -101,7 +103,6 @@ adminLoginForm.addEventListener("submit", async (e) => {
       userCredential = await signInWithEmailAndPassword(auth, email, password);
     }
     
-    // Set the session ID to this specific instructor's unique UID! 🔑
     currentSessionId = userCredential.user.uid;
 
     // Success! Hide auth gate, reveal the isolated Command Center 🎛️
