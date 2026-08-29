@@ -1,9 +1,36 @@
-// 1. IMPORT FIREBASE TOOLS 🧰
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
-import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
-import { getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager, doc, setDoc, getDoc, onSnapshot, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+// ==========================================
+// 🔥 FIREBASE IMPORTS
+// ==========================================
 
-// 2. YOUR FIREBASE CONFIGURATION 🔗
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+
+import {
+  getAuth,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signOut,
+  onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+
+import {
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
+  doc,
+  setDoc,
+  getDoc,
+  onSnapshot,
+  collection,
+  query,
+  where,
+  getDocs
+} from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+
+
+// ==========================================
+// 🔗 FIREBASE CONFIGURATION
+// ==========================================
+
 const firebaseConfig = {
   apiKey: "AIzaSyCOxB2OXsTD5m4KCHbxFNhWIjn_3JiZZHU",
   authDomain: "attendance-82604.firebaseapp.com",
@@ -13,329 +40,1288 @@ const firebaseConfig = {
   appId: "1:684977293672:web:8c57936adc38a48d032edd"
 };
 
-// 3. INITIALIZE FIREBASE & OFFLINE PERSISTENCE 🚀💾
+
+// ==========================================
+// 🚀 INITIALIZE FIREBASE
+// ==========================================
+
 const app = initializeApp(firebaseConfig);
+
 const db = initializeFirestore(app, {
-  localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
+  localCache: persistentLocalCache({
+    tabManager: persistentMultipleTabManager()
+  })
 });
+
 const auth = getAuth(app);
 
-// 4. GRAB UI ELEMENTS 🎯
-const adminLoginSection = document.getElementById("adminLoginSection");
-const adminLoginForm = document.getElementById("adminLoginForm");
-const adminLoginBtn = document.getElementById("adminLoginBtn");
-const adminDashboard = document.getElementById("adminDashboard");
-const logoutBtn = document.getElementById("logoutBtn");
 
-const authCardTitle = document.getElementById("authCardTitle");
-const authSubtitle = document.getElementById("authSubtitle");
-const nameFieldContainer = document.getElementById("nameFieldContainer");
-const instructorNameInput = document.getElementById("instructorName");
-const toggleText = document.getElementById("toggleText");
-const authModeToggleBtn = document.getElementById("authModeToggleBtn");
+// ==========================================
+// 🎯 GRAB UI ELEMENTS
+// ==========================================
 
-const sessionTitleInput = document.getElementById("sessionTitle");
-const sessionInputGroup = document.getElementById("sessionInputGroup");
-const generateCodeBtn = document.getElementById("generateCodeBtn");
-const activeSessionDiv = document.getElementById("activeSessionDiv");
-const activeSessionTitleDisplay = document.getElementById("activeSessionTitleDisplay");
-const liveCodeDisplay = document.getElementById("liveCode");
-const closeSessionBtn = document.getElementById("closeSessionBtn");
+const adminLoginSection =
+  document.getElementById("adminLoginSection");
 
-const liveCount = document.getElementById("liveCount");
-const adminAttendeeList = document.getElementById("adminAttendeeList");
-const toastContainer = document.getElementById("toastContainer");
+const adminLoginForm =
+  document.getElementById("adminLoginForm");
 
-// Global states
+const adminLoginBtn =
+  document.getElementById("adminLoginBtn");
+
+const adminDashboard =
+  document.getElementById("adminDashboard");
+
+const logoutBtn =
+  document.getElementById("logoutBtn");
+
+
+const authCardTitle =
+  document.getElementById("authCardTitle");
+
+const authSubtitle =
+  document.getElementById("authSubtitle");
+
+const nameFieldContainer =
+  document.getElementById("nameFieldContainer");
+
+const instructorNameInput =
+  document.getElementById("instructorName");
+
+const toggleText =
+  document.getElementById("toggleText");
+
+const authModeToggleBtn =
+  document.getElementById("authModeToggleBtn");
+
+
+const sessionTitleInput =
+  document.getElementById("sessionTitle");
+
+const sessionInputGroup =
+  document.getElementById("sessionInputGroup");
+
+const generateCodeBtn =
+  document.getElementById("generateCodeBtn");
+
+const activeSessionDiv =
+  document.getElementById("activeSessionDiv");
+
+const activeSessionTitleDisplay =
+  document.getElementById("activeSessionTitleDisplay");
+
+const liveCodeDisplay =
+  document.getElementById("liveCode");
+
+const closeSessionBtn =
+  document.getElementById("closeSessionBtn");
+
+
+const liveCount =
+  document.getElementById("liveCount");
+
+const adminAttendeeList =
+  document.getElementById("adminAttendeeList");
+
+const toastContainer =
+  document.getElementById("toastContainer");
+
+
+// ==========================================
+// 📦 GLOBAL STATES
+// ==========================================
+
 let isSignUpMode = false;
+
 let currentLiveCode = "";
+
 let currentSessionTitle = "";
-let currentSessionId = ""; 
+
+let currentSessionId = "";
+
 let knownAttendees = new Set();
 
-// ==========================================
-// 🧠 AUTO-LOGIN MEMORY (Handles Page Refreshes!)
-// ==========================================
-onAuthStateChanged(auth, async (user) => {
-  if (user) {
-    // User is already logged in! Skip auth gate.
-    currentSessionId = user.uid;
-    adminLoginSection.style.display = "none";
-    adminDashboard.style.display = "block";
-    logoutBtn.style.display = "inline-block";
-    
-    // Restore their active class session if they have one!
-    await restoreExistingSession(currentSessionId);
-  } else {
-    // User is signed out. Show auth gate.
-    adminDashboard.style.display = "none";
-    adminLoginSection.style.display = "block";
-    logoutBtn.style.display = "none";
-  }
-});
 
 // ==========================================
-// 🔄 RESTORE SESSION FUNCTION 🕵️‍♂️
+// 🧠 AUTO-LOGIN MEMORY
 // ==========================================
+
+onAuthStateChanged(auth, async (user) => {
+
+  if (user) {
+
+    // User is logged in
+    currentSessionId = user.uid;
+
+    adminLoginSection.style.display = "none";
+
+    adminDashboard.style.display = "block";
+
+    logoutBtn.style.display = "inline-block";
+
+
+    // Restore active session if one exists
+    await restoreExistingSession(currentSessionId);
+
+  } else {
+
+    // User is logged out
+    adminDashboard.style.display = "none";
+
+    adminLoginSection.style.display = "block";
+
+    logoutBtn.style.display = "none";
+
+  }
+
+});
+
+
+// ==========================================
+// 🔄 RESTORE EXISTING SESSION
+// ==========================================
+
 async function restoreExistingSession(instructorId) {
+
   try {
-    const sessionDocRef = doc(db, "sessions", instructorId);
-    const sessionSnap = await getDoc(sessionDocRef);
+
+    const sessionDocRef = doc(
+      db,
+      "sessions",
+      instructorId
+    );
+
+
+    const sessionSnap =
+      await getDoc(sessionDocRef);
+
 
     if (sessionSnap.exists()) {
+
       const data = sessionSnap.data();
-      
-      // If the class is still open, restore it on the screen! ✨
+
+
+      // Restore only an active session
       if (data.isOpen === true) {
+
         currentLiveCode = data.code;
-        currentSessionTitle = data.sessionTitle || "Live Class";
+
+        currentSessionTitle =
+          data.sessionTitle || "Live Session";
+
 
         sessionInputGroup.style.display = "none";
-        generateCodeBtn.style.display = "none";
-        activeSessionDiv.style.display = "block";
-        activeSessionTitleDisplay.textContent = `📚 ${currentSessionTitle}`;
-        liveCodeDisplay.textContent = currentLiveCode;
 
-        // Restart the live attendee listener
+        generateCodeBtn.style.display = "none";
+
+        activeSessionDiv.style.display = "block";
+
+
+        activeSessionTitleDisplay.textContent =
+          `📚 ${currentSessionTitle}`;
+
+
+        liveCodeDisplay.textContent =
+          currentLiveCode;
+
+
+        // Restart live attendee listener
         startLiveListener();
+
       }
+
     }
+
   } catch (error) {
-    console.error("Error restoring session:", error);
+
+    console.error(
+      "Error restoring session:",
+      error
+    );
+
   }
+
 }
 
-// ==========================================
-// 🔄 TOGGLE BETWEEN LOGIN & SIGN UP MODES
-// ==========================================
-authModeToggleBtn.addEventListener("click", () => {
-  isSignUpMode = !isSignUpMode;
-  
-  if (isSignUpMode) {
-    authCardTitle.textContent = "Instructor Sign Up 🚀";
-    authSubtitle.textContent = "Create an account to host your own live attendance sessions.";
-    nameFieldContainer.style.display = "block";
-    instructorNameInput.required = true;
-    adminLoginBtn.textContent = "Create Account ✨";
-    toggleText.textContent = "Already have an account?";
-    authModeToggleBtn.textContent = "Log in";
-  } else {
-    authCardTitle.textContent = "Instructor Portal 🔐";
-    authSubtitle.textContent = "Authenticate to access your command center.";
-    nameFieldContainer.style.display = "none";
-    instructorNameInput.required = false;
-    adminLoginBtn.textContent = "Secure Login 🛡️";
-    toggleText.textContent = "New instructor?";
-    authModeToggleBtn.textContent = "Create an account";
-  }
-});
 
 // ==========================================
-// 🔐 MANUAL AUTH GATE: LOGIN OR SIGN UP
+// 🔄 TOGGLE LOGIN / SIGN UP MODE
 // ==========================================
-adminLoginForm.addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const email = document.getElementById("adminEmail").value.trim();
-  const password = document.getElementById("adminPassword").value.trim();
-  const instructorName = instructorNameInput.value.trim();
 
-  adminLoginBtn.textContent = isSignUpMode ? "Creating Account... ⏳" : "Authenticating... ⏳";
-  adminLoginBtn.disabled = true;
+authModeToggleBtn.addEventListener(
+  "click",
 
-  try {
-    let userCredential;
+  () => {
+
+    isSignUpMode = !isSignUpMode;
+
 
     if (isSignUpMode) {
-      userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      await setDoc(doc(db, "instructors", userCredential.user.uid), {
-        name: instructorName,
-        email: email,
-        createdAt: new Date().toISOString()
-      });
+
+      authCardTitle.textContent =
+        "Instructor Sign Up 🚀";
+
+      authSubtitle.textContent =
+        "Create an account to host your own live attendance sessions.";
+
+      nameFieldContainer.style.display =
+        "block";
+
+      instructorNameInput.required =
+        true;
+
+      adminLoginBtn.textContent =
+        "Create Account ✨";
+
+      toggleText.textContent =
+        "Already have an account?";
+
+      authModeToggleBtn.textContent =
+        "Log in";
+
     } else {
-      userCredential = await signInWithEmailAndPassword(auth, email, password);
-    }
-    // Note: onAuthStateChanged will automatically handle the UI transition from here!
-  } catch (error) {
-    console.error("Auth Failed:", error);
-    alert("❌ Authentication Error: " + error.message);
-    adminLoginBtn.textContent = isSignUpMode ? "Create Account ✨" : "Secure Login 🛡️";
-    adminLoginBtn.disabled = false;
-  }
-});
 
-// ==========================================
-// 🚪 ADMIN LOGOUT LOGIC
-// ==========================================
-logoutBtn.addEventListener("click", async () => {
-  try {
-    await signOut(auth);
-    // UI reset handled by onAuthStateChanged, but we clear inputs here:
-    adminLoginForm.reset();
-    adminLoginBtn.textContent = "Secure Login 🛡️";
-    adminLoginBtn.disabled = false;
-    
-    // Reset session states & UI controls
-    currentSessionId = "";
-    currentLiveCode = "";
-    currentSessionTitle = "";
-    knownAttendees.clear();
-    sessionInputGroup.style.display = "block";
-    generateCodeBtn.style.display = "block";
-    generateCodeBtn.disabled = false;
-    generateCodeBtn.textContent = "Open Class & Generate Code 🚀";
-    activeSessionDiv.style.display = "none";
-  } catch (error) {
-    console.error("Logout error:", error);
-    alert("⚠️ Error signing out.");
-  }
-});
+      authCardTitle.textContent =
+        "Instructor Portal 🔐";
 
-// ==========================================
-// 🚀 OPEN CLASS: GENERATE ISOLATED CODE & TITLE
-// ==========================================
-generateCodeBtn.addEventListener("click", async () => {
-  const title = sessionTitleInput.value.trim();
-  if (!title) {
-    alert("❌ Please enter a class or session title first.");
-    sessionTitleInput.focus();
-    return;
-  }
+      authSubtitle.textContent =
+        "Authenticate to access your command center.";
 
-  currentSessionTitle = title;
-  currentLiveCode = Math.floor(1000 + Math.random() * 9000).toString();
-  
-  generateCodeBtn.textContent = "Opening Class... ⏳";
-  generateCodeBtn.disabled = true;
+      nameFieldContainer.style.display =
+        "none";
 
-  try {
-    await setDoc(doc(db, "sessions", currentSessionId), {
-      code: currentLiveCode,
-      sessionTitle: currentSessionTitle,
-      instructorId: currentSessionId,
-      isOpen: true,
-      createdAt: new Date().toISOString()
-    });
+      instructorNameInput.required =
+        false;
 
-    sessionInputGroup.style.display = "none";
-    generateCodeBtn.style.display = "none";
-    activeSessionDiv.style.display = "block";
-    activeSessionTitleDisplay.textContent = `📚 ${currentSessionTitle}`;
-    liveCodeDisplay.textContent = currentLiveCode;
+      adminLoginBtn.textContent =
+        "Secure Login 🛡️";
 
-    startLiveListener();
+      toggleText.textContent =
+        "New instructor?";
 
-  } catch (error) {
-    console.error("Error creating session:", error);
-    alert("⚠️ Could not open class. Check connection.");
-    generateCodeBtn.textContent = "Open Class & Generate Code 🚀";
-    generateCodeBtn.disabled = false;
-  }
-});
+      authModeToggleBtn.textContent =
+        "Create an account";
 
-// ==========================================
-// 👀 REAL-TIME LISTENER & TOAST LOGIC
-// ==========================================
-function startLiveListener() {
-  const q = query(
-    collection(db, "live_attendees"), 
-    where("instructorId", "==", currentSessionId),
-    where("sessionCode", "==", currentLiveCode)
-  );
-  
-  onSnapshot(q, (snapshot) => {
-    liveCount.textContent = snapshot.size;
-    adminAttendeeList.innerHTML = "";
-    
-    if (snapshot.empty) {
-      adminAttendeeList.innerHTML = '<p id="emptyState" style="text-align: center; color: var(--muted);">Waiting for students to join...</p>';
     }
 
-    snapshot.forEach((docSnap) => {
-      const student = docSnap.data();
-      
-      const li = document.createElement("li");
-      li.innerHTML = `<span>${student.name}</span> <span style="color: var(--muted); font-size: 0.9em; font-weight: normal; margin-left: auto;">${student.email}</span>`;
-      adminAttendeeList.appendChild(li);
+  }
 
-      if (!knownAttendees.has(student.email)) {
-        knownAttendees.add(student.email);
-        triggerToast(student.name, student.email);
+);
+
+
+// ==========================================
+// 🔐 LOGIN / SIGN UP
+// ==========================================
+
+adminLoginForm.addEventListener(
+  "submit",
+
+  async (e) => {
+
+    e.preventDefault();
+
+
+    const email =
+      document
+        .getElementById("adminEmail")
+        .value
+        .trim();
+
+
+    const password =
+      document
+        .getElementById("adminPassword")
+        .value
+        .trim();
+
+
+    const instructorName =
+      instructorNameInput.value.trim();
+
+
+    adminLoginBtn.textContent =
+      isSignUpMode
+        ? "Creating Account... ⏳"
+        : "Authenticating... ⏳";
+
+
+    adminLoginBtn.disabled = true;
+
+
+    try {
+
+      let userCredential;
+
+
+      // ==========================================
+      // CREATE ACCOUNT
+      // ==========================================
+
+      if (isSignUpMode) {
+
+        if (!instructorName) {
+
+          alert(
+            "❌ Please enter your name."
+          );
+
+          instructorNameInput.focus();
+
+          adminLoginBtn.textContent =
+            "Create Account ✨";
+
+          adminLoginBtn.disabled =
+            false;
+
+          return;
+
+        }
+
+
+        userCredential =
+          await createUserWithEmailAndPassword(
+            auth,
+            email,
+            password
+          );
+
+
+        // Create instructor profile
+        await setDoc(
+
+          doc(
+            db,
+            "instructors",
+            userCredential.user.uid
+          ),
+
+          {
+            name: instructorName,
+            email: email.toLowerCase(),
+            createdAt:
+              new Date().toISOString()
+          }
+
+        );
+
+
+      // ==========================================
+      // LOGIN
+      // ==========================================
+
+      } else {
+
+        userCredential =
+          await signInWithEmailAndPassword(
+            auth,
+            email,
+            password
+          );
+
       }
-    });
-  });
+
+
+      // onAuthStateChanged handles UI transition
+
+    } catch (error) {
+
+      console.error(
+        "Authentication failed:",
+        error
+      );
+
+
+      alert(
+        "❌ Authentication Error: " +
+        error.message
+      );
+
+
+      adminLoginBtn.textContent =
+        isSignUpMode
+          ? "Create Account ✨"
+          : "Secure Login 🛡️";
+
+
+      adminLoginBtn.disabled = false;
+
+    }
+
+  }
+
+);
+
+
+// ==========================================
+// 🚪 ADMIN LOGOUT
+// ==========================================
+
+logoutBtn.addEventListener(
+  "click",
+
+  async () => {
+
+    try {
+
+      await signOut(auth);
+
+
+      // Reset form
+      adminLoginForm.reset();
+
+
+      // Reset button
+      adminLoginBtn.textContent =
+        "Secure Login 🛡️";
+
+      adminLoginBtn.disabled =
+        false;
+
+
+      // Reset session states
+      currentSessionId = "";
+
+      currentLiveCode = "";
+
+      currentSessionTitle = "";
+
+      knownAttendees.clear();
+
+
+      // Reset UI
+      sessionInputGroup.style.display =
+        "block";
+
+      generateCodeBtn.style.display =
+        "block";
+
+      generateCodeBtn.disabled =
+        false;
+
+      generateCodeBtn.textContent =
+        "Open Class & Generate Code 🚀";
+
+      activeSessionDiv.style.display =
+        "none";
+
+
+      liveCount.textContent = "0";
+
+      adminAttendeeList.innerHTML =
+        `
+          <p
+            id="emptyState"
+            style="
+              text-align: center;
+              color: var(--muted);
+            "
+          >
+            Waiting for students to join...
+          </p>
+        `;
+
+
+    } catch (error) {
+
+      console.error(
+        "Logout error:",
+        error
+      );
+
+
+      alert(
+        "⚠️ Error signing out."
+      );
+
+    }
+
+  }
+
+);
+
+
+// ==========================================
+// 🔐 GENERATE SECURE SESSION CODE
+// ==========================================
+//
+// Format:
+//
+// AH-X7K92P
+//
+// Uses crypto.getRandomValues()
+// instead of Math.random().
+//
+
+function generateSessionCode() {
+
+  const characters =
+    "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+
+
+  const randomValues =
+    new Uint32Array(6);
+
+
+  crypto.getRandomValues(
+    randomValues
+  );
+
+
+  let randomPart = "";
+
+
+  for (let i = 0; i < 6; i++) {
+
+    randomPart +=
+      characters[
+        randomValues[i] %
+        characters.length
+      ];
+
+  }
+
+
+  return `AH-${randomPart}`;
+
 }
+
+
+// ==========================================
+// 🔍 GENERATE UNIQUE SESSION CODE
+// ==========================================
+//
+// Checks Firestore to make sure another
+// active session is not already using the
+// generated code.
+//
+
+async function generateUniqueSessionCode() {
+
+  const maxAttempts = 10;
+
+
+  for (
+    let attempt = 0;
+    attempt < maxAttempts;
+    attempt++
+  ) {
+
+    const code =
+      generateSessionCode();
+
+
+    const codeQuery = query(
+
+      collection(db, "sessions"),
+
+      where("code", "==", code),
+
+      where("isOpen", "==", true)
+
+    );
+
+
+    const snapshot =
+      await getDocs(codeQuery);
+
+
+    // Code is not currently being used
+    if (snapshot.empty) {
+
+      return code;
+
+    }
+
+  }
+
+
+  // Extremely unlikely to happen
+  throw new Error(
+    "Could not generate a unique session code. Please try again."
+  );
+
+}
+
+
+// ==========================================
+// 🚀 OPEN CLASS
+// ==========================================
+
+generateCodeBtn.addEventListener(
+  "click",
+
+  async () => {
+
+    const title =
+      sessionTitleInput.value.trim();
+
+
+    // Validate title
+    if (!title) {
+
+      alert(
+        "❌ Please enter a class or session title first."
+      );
+
+      sessionTitleInput.focus();
+
+      return;
+
+    }
+
+
+    // Prevent overly long titles
+    if (title.length > 100) {
+
+      alert(
+        "❌ Session title must be 100 characters or less."
+      );
+
+      sessionTitleInput.focus();
+
+      return;
+
+    }
+
+
+    generateCodeBtn.textContent =
+      "Opening Class... ⏳";
+
+    generateCodeBtn.disabled =
+      true;
+
+
+    try {
+
+
+      // ==========================================
+      // GENERATE UNIQUE CODE
+      // ==========================================
+
+      currentLiveCode =
+        await generateUniqueSessionCode();
+
+
+      currentSessionTitle =
+        title;
+
+
+      // ==========================================
+      // CREATE SESSION
+      // ==========================================
+
+      await setDoc(
+
+        doc(
+          db,
+          "sessions",
+          currentSessionId
+        ),
+
+        {
+
+          code:
+            currentLiveCode,
+
+          sessionTitle:
+            currentSessionTitle,
+
+          instructorId:
+            currentSessionId,
+
+          isOpen:
+            true,
+
+          createdAt:
+            new Date().toISOString()
+
+        }
+
+      );
+
+
+      // ==========================================
+      // UPDATE UI
+      // ==========================================
+
+      sessionInputGroup.style.display =
+        "none";
+
+      generateCodeBtn.style.display =
+        "none";
+
+      activeSessionDiv.style.display =
+        "block";
+
+
+      activeSessionTitleDisplay.textContent =
+        `📚 ${currentSessionTitle}`;
+
+
+      liveCodeDisplay.textContent =
+        currentLiveCode;
+
+
+      // Start realtime attendance listener
+      startLiveListener();
+
+
+    } catch (error) {
+
+      console.error(
+        "Error creating session:",
+        error
+      );
+
+
+      alert(
+        "⚠️ Could not open class. Please check your connection and try again."
+      );
+
+
+      generateCodeBtn.textContent =
+        "Open Class & Generate Code 🚀";
+
+      generateCodeBtn.disabled =
+        false;
+
+    }
+
+  }
+
+);
+
+
+// ==========================================
+// 👀 REAL-TIME ATTENDANCE LISTENER
+// ==========================================
+
+function startLiveListener() {
+
+  const attendanceQuery = query(
+
+    collection(
+      db,
+      "live_attendees"
+    ),
+
+    where(
+      "instructorId",
+      "==",
+      currentSessionId
+    ),
+
+    where(
+      "sessionCode",
+      "==",
+      currentLiveCode
+    )
+
+  );
+
+
+  onSnapshot(
+
+    attendanceQuery,
+
+    (snapshot) => {
+
+      // Update attendance count
+      liveCount.textContent =
+        snapshot.size;
+
+
+      // Clear list
+      adminAttendeeList.innerHTML =
+        "";
+
+
+      // Empty state
+      if (snapshot.empty) {
+
+        adminAttendeeList.innerHTML =
+          `
+            <p
+              id="emptyState"
+              style="
+                text-align: center;
+                color: var(--muted);
+              "
+            >
+              Waiting for students to join...
+            </p>
+          `;
+
+      }
+
+
+      // Display attendees
+      snapshot.forEach(
+        (docSnap) => {
+
+          const student =
+            docSnap.data();
+
+
+          const li =
+            document.createElement("li");
+
+
+          // Avoid unsafe innerHTML with user input
+          const nameSpan =
+            document.createElement("span");
+
+          nameSpan.textContent =
+            student.name;
+
+
+          const emailSpan =
+            document.createElement("span");
+
+          emailSpan.textContent =
+            student.email;
+
+
+          emailSpan.style.color =
+            "var(--muted)";
+
+          emailSpan.style.fontSize =
+            "0.9em";
+
+          emailSpan.style.fontWeight =
+            "normal";
+
+          emailSpan.style.marginLeft =
+            "auto";
+
+
+          li.appendChild(nameSpan);
+
+          li.appendChild(emailSpan);
+
+
+          adminAttendeeList.appendChild(
+            li
+          );
+
+
+          // Show notification only for new attendees
+          if (
+            !knownAttendees.has(
+              student.email
+            )
+          ) {
+
+            knownAttendees.add(
+              student.email
+            );
+
+
+            triggerToast(
+              student.name,
+              student.email
+            );
+
+          }
+
+        }
+      );
+
+    },
+
+    (error) => {
+
+      console.error(
+        "Live attendance listener error:",
+        error
+      );
+
+    }
+
+  );
+
+}
+
+
+// ==========================================
+// 🔔 NEW ATTENDEE TOAST
+// ==========================================
 
 function triggerToast(name, email) {
-  const toast = document.createElement("div");
-  toast.className = "toast";
-  toast.innerHTML = `
-    <div style="font-size: 2rem;">👋</div> 
-    <div>
-      <div style="color: var(--teal); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px;">New Check-In</div>
-      <strong style="font-size: 1.1rem; color: var(--navy);">${name}</strong><br>
-      <small style="color: var(--muted);">${email}</small>
-    </div>
-  `;
-  
-  toastContainer.appendChild(toast);
 
-  setTimeout(() => {
-    toast.style.animation = "slideOut 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards";
-    setTimeout(() => toast.remove(), 400);
-  }, 5000);
+  const toast =
+    document.createElement("div");
+
+
+  toast.className =
+    "toast";
+
+
+  const icon =
+    document.createElement("div");
+
+  icon.style.fontSize =
+    "2rem";
+
+  icon.textContent =
+    "👋";
+
+
+  const content =
+    document.createElement("div");
+
+
+  const label =
+    document.createElement("div");
+
+  label.textContent =
+    "New Check-In";
+
+  label.style.color =
+    "var(--teal)";
+
+  label.style.fontSize =
+    "0.8rem";
+
+  label.style.textTransform =
+    "uppercase";
+
+  label.style.letterSpacing =
+    "1px";
+
+
+  const nameElement =
+    document.createElement("strong");
+
+  nameElement.textContent =
+    name;
+
+  nameElement.style.fontSize =
+    "1.1rem";
+
+  nameElement.style.color =
+    "var(--navy)";
+
+
+  const emailElement =
+    document.createElement("small");
+
+  emailElement.textContent =
+    email;
+
+  emailElement.style.color =
+    "var(--muted)";
+
+
+  content.appendChild(label);
+
+  content.appendChild(
+    nameElement
+  );
+
+  content.appendChild(
+    document.createElement("br")
+  );
+
+  content.appendChild(
+    emailElement
+  );
+
+
+  toast.appendChild(icon);
+
+  toast.appendChild(content);
+
+
+  toastContainer.appendChild(
+    toast
+  );
+
+
+  setTimeout(
+
+    () => {
+
+      toast.style.animation =
+        "slideOut 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards";
+
+
+      setTimeout(
+        () => toast.remove(),
+        400
+      );
+
+    },
+
+    5000
+
+  );
+
 }
 
+
 // ==========================================
-// 📥 CLOSE CLASS & EXPORT CSV LOGIC
+// 📥 CLOSE CLASS & EXPORT CSV
 // ==========================================
-closeSessionBtn.addEventListener("click", async () => {
-  if (!confirm("Are you sure you want to close the class? No more students will be able to join.")) return;
 
-  closeSessionBtn.textContent = "Exporting... ⏳";
-  closeSessionBtn.disabled = true;
+closeSessionBtn.addEventListener(
+  "click",
 
-  try {
-    await setDoc(doc(db, "sessions", currentSessionId), { isOpen: false }, { merge: true });
+  async () => {
 
-    let csvContent = "data:text/csv;charset=utf-8,Status,Name,Email,Time\n";
-    
-    const q = query(
-      collection(db, "live_attendees"), 
-      where("instructorId", "==", currentSessionId),
-      where("sessionCode", "==", currentLiveCode)
-    );
-    const snapshot = await getDocs(q);
-    
-    snapshot.forEach((docSnap) => {
-      const data = docSnap.data();
-      const timeStr = new Date(data.timestamp).toLocaleTimeString();
-      csvContent += `Present,"${data.name}","${data.email}","${timeStr}"\n`;
-    });
+    const confirmed =
+      confirm(
+        "Are you sure you want to close this session? No more students will be able to check in."
+      );
 
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `Attendance_${currentSessionTitle.replace(/\s+/g, '_')}_${currentLiveCode}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
 
-    alert("✅ Class Closed and CSV Exported!");
-    closeSessionBtn.textContent = "Session Closed 🔒";
+    if (!confirmed) {
 
-  } catch (error) {
-    console.error("Error exporting:", error);
-    alert("⚠️ Error exporting CSV.");
-    closeSessionBtn.disabled = false;
+      return;
+
+    }
+
+
+    closeSessionBtn.textContent =
+      "Closing & Exporting... ⏳";
+
+    closeSessionBtn.disabled =
+      true;
+
+
+    try {
+
+
+      // ==========================================
+      // CLOSE SESSION
+      // ==========================================
+
+      await setDoc(
+
+        doc(
+          db,
+          "sessions",
+          currentSessionId
+        ),
+
+        {
+          isOpen: false
+        },
+
+        {
+          merge: true
+        }
+
+      );
+
+
+      // ==========================================
+      // FETCH ATTENDANCE
+      // ==========================================
+
+      const attendanceQuery =
+        query(
+
+          collection(
+            db,
+            "live_attendees"
+          ),
+
+          where(
+            "instructorId",
+            "==",
+            currentSessionId
+          ),
+
+          where(
+            "sessionCode",
+            "==",
+            currentLiveCode
+          )
+
+        );
+
+
+      const snapshot =
+        await getDocs(
+          attendanceQuery
+        );
+
+
+      // ==========================================
+      // BUILD CSV
+      // ==========================================
+
+      let csvContent =
+        "Status,Name,Email,Time\n";
+
+
+      snapshot.forEach(
+        (docSnap) => {
+
+          const data =
+            docSnap.data();
+
+
+          const timeStr =
+            new Date(
+              data.timestamp
+            ).toLocaleTimeString();
+
+
+          // Escape double quotes for CSV safety
+          const safeName =
+            String(data.name)
+              .replace(/"/g, '""');
+
+          const safeEmail =
+            String(data.email)
+              .replace(/"/g, '""');
+
+
+          csvContent +=
+            `Present,"${safeName}","${safeEmail}","${timeStr}"\n`;
+
+        }
+      );
+
+
+      // ==========================================
+      // DOWNLOAD CSV
+      // ==========================================
+
+      const blob =
+        new Blob(
+
+          [csvContent],
+
+          {
+            type:
+              "text/csv;charset=utf-8;"
+          }
+
+        );
+
+
+      const url =
+        URL.createObjectURL(blob);
+
+
+      const link =
+        document.createElement("a");
+
+
+      link.href =
+        url;
+
+
+      const safeTitle =
+        currentSessionTitle
+          .replace(
+            /[^a-z0-9]/gi,
+            "_"
+          );
+
+
+      link.download =
+        `Attendance_${safeTitle}_${currentLiveCode}.csv`;
+
+
+      document.body.appendChild(
+        link
+      );
+
+
+      link.click();
+
+
+      link.remove();
+
+
+      URL.revokeObjectURL(
+        url
+      );
+
+
+      // ==========================================
+      // UPDATE UI
+      // ==========================================
+
+      alert(
+        "✅ Session closed and attendance CSV exported!"
+      );
+
+
+      closeSessionBtn.textContent =
+        "Session Closed 🔒";
+
+
+    } catch (error) {
+
+      console.error(
+        "Error closing/exporting session:",
+        error
+      );
+
+
+      alert(
+        "⚠️ Error closing session or exporting attendance."
+      );
+
+
+      closeSessionBtn.textContent =
+        "Close Class & Export CSV 📥";
+
+      closeSessionBtn.disabled =
+        false;
+
+    }
+
   }
-});
 
-// 🤖 Register Service Worker for PWA support
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js')
-      .then((reg) => console.log('Service Worker registered! Scope:', reg.scope))
-      .catch((err) => console.log('Service Worker registration failed:', err));
-  });
+);
+
+
+// ==========================================
+// 📱 PWA SERVICE WORKER
+// ==========================================
+
+if ("serviceWorker" in navigator) {
+
+  window.addEventListener(
+
+    "load",
+
+    () => {
+
+      navigator.serviceWorker
+
+        .register("/sw.js")
+
+        .then(
+          (registration) => {
+
+            console.log(
+              "Service Worker registered! Scope:",
+              registration.scope
+            );
+
+          }
+        )
+
+        .catch(
+          (error) => {
+
+            console.log(
+              "Service Worker registration failed:",
+              error
+            );
+
+          }
+        );
+
+    }
+
+  );
+
 }
