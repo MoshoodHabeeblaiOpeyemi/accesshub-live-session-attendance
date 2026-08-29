@@ -73,11 +73,20 @@
             </div>
             <div style="padding: 40px; text-align: center; background: white;">
 
+                <!-- NEW SESSION NAME FIELD! 🏷️ -->
+                <div class="field" id="sessionInputGroup"
+                    style="text-align: left; max-width: 400px; margin: 0 auto 20px;">
+                    <label for="sessionTitle">Class / Session Title</label>
+                    <input id="sessionTitle" type="text" placeholder="e.g. MATH 101 - Morning Lecture" required>
+                </div>
+
                 <button id="generateCodeBtn" type="button" style="max-width: 400px; margin: 0 auto;">
                     Open Class & Generate Code 🚀
                 </button>
 
-                <div id="activeSessionDiv" style="display: none; margin-top: 30px;">
+                <div id="activeSessionDiv" style="display: none; margin-top: 20px;">
+                    <p id="activeSessionTitleDisplay"
+                        style="font-size: 1.1rem; color: var(--navy); font-weight: bold; margin-bottom: 5px;"></p>
                     <p style="font-weight: 700; color: var(--muted); text-transform: uppercase;">Students, enter this
                         code:</p>
                     <h2 id="liveCode" class="code-display">----</h2>

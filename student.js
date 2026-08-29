@@ -23,6 +23,66 @@ const form = document.getElementById("studentCheckInForm");
 const checkInBtn = document.getElementById("checkInBtn");
 const studentLoginSection = document.getElementById("studentLoginSection");
 const heroText = document.querySelector(".hero p");
+const codeInput = document.getElementById("liveAccessCode");
+
+// Global holding variable for verified session details
+let verifiedSessionData = null;
+
+// ==========================================
+// 🔍 DYNAMIC CODE LOOKUP ON INPUT BLUR / CHANGE
+// ==========================================
+let lookupTimeout;
+codeInput.addEventListener("input", (e) => {
+  clearTimeout(lookupTimeout);
+  const code = e.target.value.trim();
+  
+  // If user typed 4 digits, automatically preview the class title! ✨
+  if (/^\d{4}$/.test(code)) {
+    lookupTimeout = setTimeout(() => fetchClassPreview(code), 300);
+  } else {
+    removePreviewBanner();
+  }
+});
+
+async function fetchClassPreview(code) {
+  try {
+    const sessionsQuery = query(
+      collection(db, "sessions"), 
+      where("code", "==", code),
+      where("isOpen", "==", true)
+    );
+    const sessionSnapshot = await getDocs(sessionsQuery);
+
+    if (!sessionSnapshot.empty) {
+      const sessionDoc = sessionSnapshot.docs[0];
+      verifiedSessionData = sessionDoc.data();
+      
+      // Show class title preview banner right above the form 🏫
+      showPreviewBanner(verifiedSessionData.sessionTitle);
+    } else {
+      verifiedSessionData = null;
+      removePreviewBanner();
+    }
+  } catch (err) {
+    console.error("Preview error:", err);
+  }
+}
+
+function showPreviewBanner(title) {
+  let banner = document.getElementById("classPreviewBanner");
+  if (!banner) {
+    banner = document.createElement("div");
+    banner.id = "classPreviewBanner";
+    banner.style.cssText = "background: var(--light); border: 2px solid var(--teal); padding: 12px 16px; border-radius: 8px; margin-bottom: 20px; text-align: center; animation: fadeIn 0.3s ease;";
+    codeInput.parentNode.parentNode.insertBefore(banner, codeInput.parentNode);
+  }
+  banner.innerHTML = `<span style="font-size: 0.85rem; color: var(--muted); text-transform: uppercase; display: block; font-weight: bold;">Verified Class Found:</span><strong style="color: var(--navy); font-size: 1.1rem;">📚 ${title}</strong>`;
+}
+
+function removePreviewBanner() {
+  const banner = document.getElementById("classPreviewBanner");
+  if (banner) banner.remove();
+}
 
 // ==========================================
 // 🛡️ BULLETPROOF MULTI-TENANT CHECK-IN LOGIC
@@ -42,15 +102,12 @@ form.addEventListener("submit", async (e) => {
 
   const nameInput = document.getElementById("studentName");
   const emailInput = document.getElementById("studentEmail");
-  const codeInput = document.getElementById("liveAccessCode");
 
   const name = nameInput.value.trim();
   const email = emailInput.value.trim().toLowerCase();
   const code = codeInput.value.trim();
 
   // 1. STRICT FORMAT VALIDATION 🔍
-  
-  // Name Check: 2 to 50 characters, letters, spaces, hyphens, and apostrophes only 📛
   const nameRegex = /^[a-zA-Z\s'-]{2,50}$/;
   if (!nameRegex.test(name)) {
     alert("❌ Please enter a valid full name (letters and spaces only, 2-50 characters).");
@@ -59,7 +116,6 @@ form.addEventListener("submit", async (e) => {
     return;
   }
 
-  // Email Check: Standard email format regex 📧
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (!emailRegex.test(email)) {
     alert("❌ Please enter a valid email address (e.g., student@example.com).");
@@ -68,7 +124,6 @@ form.addEventListener("submit", async (e) => {
     return;
   }
 
-  // Code Check: Strictly 4 digits 🔢
   const codeRegex = /^\d{4}$/;
   if (!codeRegex.test(code)) {
     alert("❌ Invalid Access Code format. The live code must be exactly 4 digits.");
@@ -77,11 +132,11 @@ form.addEventListener("submit", async (e) => {
     return;
   }
 
-  checkInBtn.textContent = "Verifying... ⏳";
+  checkInBtn.textContent = "Verifying & Checking In... ⏳";
   checkInBtn.disabled = true;
 
   try {
-    // 2. SEARCH ACTIVE SESSIONS 🏢
+    // 2. RE-VERIFY ACTIVE SESSION 🏢
     const sessionsQuery = query(
       collection(db, "sessions"), 
       where("code", "==", code),
@@ -98,8 +153,9 @@ form.addEventListener("submit", async (e) => {
     const sessionDoc = sessionSnapshot.docs[0];
     const sessionData = sessionDoc.data();
     const instructorId = sessionData.instructorId;
+    const sessionTitle = sessionData.sessionTitle || "Live Class";
 
-    // Optional: Auto-expiry check (Reject sessions older than 3 hours) ⏰
+    // Auto-expiry check (Reject sessions older than 3 hours) ⏰
     const threeHoursAgo = new Date(Date.now() - (3 * 60 * 60 * 1000)).toISOString();
     if (sessionData.createdAt && sessionData.createdAt < threeHoursAgo) {
       alert("❌ This active session has expired. Please ask your instructor for a fresh code.");
@@ -128,6 +184,7 @@ form.addEventListener("submit", async (e) => {
       name: name,
       email: email,
       sessionCode: code,
+      sessionTitle: sessionTitle,
       timestamp: new Date().toISOString()
     });
 
@@ -136,7 +193,8 @@ form.addEventListener("submit", async (e) => {
       <div style="padding: 40px; text-align: center;">
         <h2 style="font-size: 5rem; margin-bottom: 20px; animation: fadeIn 0.5s ease;">✅</h2>
         <h3 style="color: var(--teal); margin-bottom: 10px; font-size: 1.5rem;">You're in, ${name}!</h3>
-        <p style="color: var(--muted); margin-bottom: 25px;">Your attendance has been securely recorded. You can now close this page or return to the webinar.</p>
+        <p style="color: var(--navy); font-weight: bold; margin-bottom: 10px;">📚 ${sessionTitle}</p>
+        <p style="color: var(--muted); margin-bottom: 25px;">Your attendance has been securely recorded. You can now close this page.</p>
         
         <button onclick="location.reload();" style="max-width: 250px; margin: 0 auto; background: var(--navy);">
           Back to Check-In 🔄

@@ -33,8 +33,11 @@ const instructorNameInput = document.getElementById("instructorName");
 const toggleText = document.getElementById("toggleText");
 const authModeToggleBtn = document.getElementById("authModeToggleBtn");
 
+const sessionTitleInput = document.getElementById("sessionTitle");
+const sessionInputGroup = document.getElementById("sessionInputGroup");
 const generateCodeBtn = document.getElementById("generateCodeBtn");
 const activeSessionDiv = document.getElementById("activeSessionDiv");
+const activeSessionTitleDisplay = document.getElementById("activeSessionTitleDisplay");
 const liveCodeDisplay = document.getElementById("liveCode");
 const closeSessionBtn = document.getElementById("closeSessionBtn");
 
@@ -45,6 +48,7 @@ const toastContainer = document.getElementById("toastContainer");
 // Global states
 let isSignUpMode = false;
 let currentLiveCode = "";
+let currentSessionTitle = "";
 let currentSessionId = ""; 
 let knownAttendees = new Set();
 
@@ -89,23 +93,18 @@ adminLoginForm.addEventListener("submit", async (e) => {
     let userCredential;
 
     if (isSignUpMode) {
-      // 1. Create a brand new instructor account in Firebase Auth ✨
       userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      
-      // 2. Save their profile info in the "instructors" collection 🗄️
       await setDoc(doc(db, "instructors", userCredential.user.uid), {
         name: instructorName,
         email: email,
         createdAt: new Date().toISOString()
       });
     } else {
-      // Regular login 🛡️
       userCredential = await signInWithEmailAndPassword(auth, email, password);
     }
     
     currentSessionId = userCredential.user.uid;
 
-    // Success! Hide auth gate, reveal the isolated Command Center 🎛️
     adminLoginSection.style.display = "none";
     adminDashboard.style.display = "block";
     
@@ -118,28 +117,38 @@ adminLoginForm.addEventListener("submit", async (e) => {
 });
 
 // ==========================================
-// 🚀 OPEN CLASS: GENERATE ISOLATED CODE
+// 🚀 OPEN CLASS: GENERATE ISOLATED CODE & TITLE
 // ==========================================
 generateCodeBtn.addEventListener("click", async () => {
+  const title = sessionTitleInput.value.trim();
+  if (!title) {
+    alert("❌ Please enter a class or session title first.");
+    sessionTitleInput.focus();
+    return;
+  }
+
+  currentSessionTitle = title;
   currentLiveCode = Math.floor(1000 + Math.random() * 9000).toString();
   
   generateCodeBtn.textContent = "Opening Class... ⏳";
   generateCodeBtn.disabled = true;
 
   try {
-    // Save session tied DIRECTLY to this instructor's UID! 🏢🗂️
+    // Save session tied DIRECTLY to this instructor's UID with the Custom Title! 🏢🏫
     await setDoc(doc(db, "sessions", currentSessionId), {
       code: currentLiveCode,
+      sessionTitle: currentSessionTitle,
       instructorId: currentSessionId,
       isOpen: true,
       createdAt: new Date().toISOString()
     });
 
+    sessionInputGroup.style.display = "none";
     generateCodeBtn.style.display = "none";
     activeSessionDiv.style.display = "block";
+    activeSessionTitleDisplay.textContent = `📚 ${currentSessionTitle}`;
     liveCodeDisplay.textContent = currentLiveCode;
 
-    // Listen only for students checking into THIS instructor's active code! 👀
     startLiveListener();
 
   } catch (error) {
@@ -215,6 +224,7 @@ closeSessionBtn.addEventListener("click", async () => {
   try {
     await setDoc(doc(db, "sessions", currentSessionId), { isOpen: false }, { merge: true });
 
+    // Clean CSV format wrapped in quotes for the time field to prevent Excel ### errors 📊
     let csvContent = "data:text/csv;charset=utf-8,Status,Name,Email,Time\n";
     
     const q = query(
@@ -226,14 +236,14 @@ closeSessionBtn.addEventListener("click", async () => {
     
     snapshot.forEach((docSnap) => {
       const data = docSnap.data();
-      const time = new Date(data.timestamp).toLocaleTimeString();
-      csvContent += `Present,${data.name},${data.email},${time}\n`;
+      const timeStr = new Date(data.timestamp).toLocaleTimeString();
+      csvContent += `Present,"${data.name}","${data.email}","${timeStr}"\n`;
     });
 
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `Attendance_${currentLiveCode}_${new Date().toLocaleDateString()}.csv`);
+    link.setAttribute("download", `Attendance_${currentSessionTitle.replace(/\s+/g, '_')}_${currentLiveCode}.csv`);
     document.body.appendChild(link);
     link.click();
     link.remove();
