@@ -23,20 +23,50 @@ const studentLoginSection = document.getElementById("studentLoginSection");
 const heroText = document.querySelector(".hero p");
 
 // ==========================================
-// 🛡️ MULTI-TENANT CHECK-IN LOGIC
+// 🛡️ BULLETPROOF MULTI-TENANT CHECK-IN LOGIC
 // ==========================================
 form.addEventListener("submit", async (e) => {
   e.preventDefault();
   
-  const name = document.getElementById("studentName").value.trim();
-  const email = document.getElementById("studentEmail").value.trim().toLowerCase();
-  const code = document.getElementById("liveAccessCode").value.trim();
+  const nameInput = document.getElementById("studentName");
+  const emailInput = document.getElementById("studentEmail");
+  const codeInput = document.getElementById("liveAccessCode");
+
+  const name = nameInput.value.trim();
+  const email = emailInput.value.trim().toLowerCase();
+  const code = codeInput.value.trim();
+
+  // 1. STRICT FORMAT VALIDATION 🔍
+  
+  // Name Check: At least 2 characters, only letters, spaces, hyphens, and apostrophes (No malicious scripts/symbols)
+  const nameRegex = /^[a-zA-Z\s'-]{2,50}$/;
+  if (!nameRegex.test(name)) {
+    alert("❌ Please enter a valid full name (letters and spaces only, 2-50 characters).");
+    nameInput.focus();
+    return;
+  }
+
+  // Email Check: Standard email format regex 📧
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    alert("❌ Please enter a valid email address (e.g., student@example.com).");
+    emailInput.focus();
+    return;
+  }
+
+  // Code Check: Strictly 4 digits 🔢
+  const codeRegex = /^\d{4}$/;
+  if (!codeRegex.test(code)) {
+    alert("❌ Invalid Access Code format. The live code must be exactly 4 digits.");
+    codeInput.focus();
+    return;
+  }
 
   checkInBtn.textContent = "Verifying... ⏳";
   checkInBtn.disabled = true;
 
   try {
-    // 1. Search across all instructor sessions to find the one matching this live code & isOpen: true 🔍
+    // 2. SEARCH ACTIVE SESSIONS 🏢
     const sessionsQuery = query(
       collection(db, "sessions"), 
       where("code", "==", code),
@@ -50,12 +80,11 @@ form.addEventListener("submit", async (e) => {
       return;
     }
 
-    // Grab the specific instructor session data! 🏢
     const sessionDoc = sessionSnapshot.docs[0];
     const sessionData = sessionDoc.data();
     const instructorId = sessionData.instructorId;
 
-    // 2. ANTI-CHEAT: Did this student already check in for THIS specific session? 🛑
+    // 3. AIRTIGHT ANTI-DUPLICATE CHECK (Can someone register twice? NOPE! 🛑)
     const duplicateQuery = query(
       collection(db, "live_attendees"), 
       where("instructorId", "==", instructorId),
@@ -65,12 +94,12 @@ form.addEventListener("submit", async (e) => {
     const duplicateCheck = await getDocs(duplicateQuery);
 
     if (!duplicateCheck.empty) {
-      alert("⚠️ You have already checked in for this session!");
+      alert("⚠️ You have already checked in for this session using this email address!");
       resetButton();
       return;
     }
 
-    // 3. SUCCESS! Write the attendee record tied to this instructor's ID ✅
+    // 4. SECURE WRITE TO DATABASE ✅
     await addDoc(collection(db, "live_attendees"), {
       instructorId: instructorId,
       name: name,
@@ -79,7 +108,7 @@ form.addEventListener("submit", async (e) => {
       timestamp: new Date().toISOString()
     });
 
-    // 4. Update UI with success card and reset option 🎉
+    // 5. SUCCESS UI 🎉
     studentLoginSection.innerHTML = `
       <div style="padding: 40px; text-align: center;">
         <h2 style="font-size: 5rem; margin-bottom: 20px; animation: fadeIn 0.5s ease;">✅</h2>
