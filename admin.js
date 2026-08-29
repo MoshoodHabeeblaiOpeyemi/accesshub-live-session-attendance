@@ -106,9 +106,13 @@ adminLoginForm.addEventListener("submit", async (e) => {
     
     currentSessionId = userCredential.user.uid;
 
+    // Success! Hide auth gate, reveal the command center 🎛️
     adminLoginSection.style.display = "none";
     adminDashboard.style.display = "block";
-    logoutBtn.style.display = "inline-block"; // 👈 Show logout button on successful entry
+    logoutBtn.style.display = "inline-block";
+
+    // 🔍 CHECK IF THIS INSTRUCTOR ALREADY HAS AN ACTIVE OPEN SESSION! 🏢
+    await restoreExistingSession(currentSessionId);
     
   } catch (error) {
     console.error("Auth Failed:", error);
@@ -117,6 +121,37 @@ adminLoginForm.addEventListener("submit", async (e) => {
     adminLoginBtn.disabled = false;
   }
 });
+
+// ==========================================
+// 🔄 RESTORE SESSION IF ALREADY ACTIVE 🕵️‍♂️
+// ==========================================
+async function restoreExistingSession(instructorId) {
+  try {
+    const sessionDocRef = doc(db, "sessions", instructorId);
+    const sessionSnap = await getDoc(sessionDocRef);
+
+    if (sessionSnap.exists()) {
+      const data = sessionSnap.data();
+      
+      // If the class is still open, restore it on the screen! ✨
+      if (data.isOpen === true) {
+        currentLiveCode = data.code;
+        currentSessionTitle = data.sessionTitle || "Live Class";
+
+        sessionInputGroup.style.display = "none";
+        generateCodeBtn.style.display = "none";
+        activeSessionDiv.style.display = "block";
+        activeSessionTitleDisplay.textContent = `📚 ${currentSessionTitle}`;
+        liveCodeDisplay.textContent = currentLiveCode;
+
+        // Restart the live attendee listener
+        startLiveListener();
+      }
+    }
+  } catch (error) {
+    console.error("Error restoring session:", error);
+  }
+}
 
 // ==========================================
 // 🚪 ADMIN LOGOUT LOGIC
