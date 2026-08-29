@@ -1,7 +1,7 @@
 // 1. IMPORT FIREBASE TOOLS 🧰
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
-import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
-import { getFirestore, doc, setDoc, onSnapshot, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+import { getFirestore, doc, setDoc, getDoc, onSnapshot, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
 // 2. YOUR FIREBASE CONFIGURATION 🔗
 const firebaseConfig = {
@@ -24,6 +24,13 @@ const adminLoginForm = document.getElementById("adminLoginForm");
 const adminLoginBtn = document.getElementById("adminLoginBtn");
 const adminDashboard = document.getElementById("adminDashboard");
 
+const authCardTitle = document.getElementById("authCardTitle");
+const authSubtitle = document.getElementById("authSubtitle");
+const nameFieldContainer = document.getElementById("nameFieldContainer");
+const instructorNameInput = document.getElementById("instructorName");
+const toggleText = document.getElementById("toggleText");
+const authModeToggleBtn = document.getElementById("authModeToggleBtn");
+
 const generateCodeBtn = document.getElementById("generateCodeBtn");
 const activeSessionDiv = document.getElementById("activeSessionDiv");
 const liveCodeDisplay = document.getElementById("liveCode");
@@ -33,61 +40,105 @@ const liveCount = document.getElementById("liveCount");
 const adminAttendeeList = document.getElementById("adminAttendeeList");
 const toastContainer = document.getElementById("toastContainer");
 
-// Global variables to track the active session
+// Global states
+let isSignUpMode = false;
 let currentLiveCode = "";
-let knownAttendees = new Set(); // To prevent duplicate toasts!
+let currentSessionId = ""; // Will be set to the instructor's unique UID!
+let knownAttendees = new Set();
 
 // ==========================================
-// 🔐 SECURITY GATE: LOGIN LOGIC
+// 🔄 TOGGLE BETWEEN LOGIN & SIGN UP MODES
+// ==========================================
+authModeToggleBtn.addEventListener("click", () => {
+  isSignUpMode = !isSignUpMode;
+  
+  if (isSignUpMode) {
+    authCardTitle.textContent = "Instructor Sign Up 🚀";
+    authSubtitle.textContent = "Create an account to host your own live attendance sessions.";
+    nameFieldContainer.style.display = "block";
+    instructorNameInput.required = true;
+    adminLoginBtn.textContent = "Create Account ✨";
+    toggleText.textContent = "Already have an account?";
+    authModeToggleBtn.textContent = "Log in";
+  } else {
+    authCardTitle.textContent = "Instructor Portal 🔐";
+    authSubtitle.textContent = "Authenticate to access your command center.";
+    nameFieldContainer.style.display = "none";
+    instructorNameInput.required = false;
+    adminLoginBtn.textContent = "Secure Login 🛡️";
+    toggleText.textContent = "New instructor?";
+    authModeToggleBtn.textContent = "Create an account";
+  }
+});
+
+// ==========================================
+// 🔐 AUTH GATE: LOGIN OR SIGN UP
 // ==========================================
 adminLoginForm.addEventListener("submit", async (e) => {
   e.preventDefault();
   const email = document.getElementById("adminEmail").value.trim();
   const password = document.getElementById("adminPassword").value.trim();
+  const instructorName = instructorNameInput.value.trim();
 
-  adminLoginBtn.textContent = "Authenticating... ⏳";
+  adminLoginBtn.textContent = isSignUpMode ? "Creating Account... ⏳" : "Authenticating... ⏳";
   adminLoginBtn.disabled = true;
 
   try {
-    // Talk to Google servers to verify this admin! 🛡️
-    await signInWithEmailAndPassword(auth, email, password);
+    let userCredential;
+
+    if (isSignUpMode) {
+      // 1. Create a brand new instructor account in Firebase Auth ✨
+      userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      
+      // 2. Save their profile info in a "instructors" collection 🗄️
+      await setDoc(doc(db, "instructors", userCredential.user.uid), {
+        name: instructorName,
+        email: email,
+        createdAt: new Date().toISOString()
+      });
+    } else {
+      // Regular login 🛡️
+      userCredential = await signInWithEmailAndPassword(auth, email, password);
+    }
     
-    // Success! Hide login, reveal the Command Center 🎛️
+    // Set the session ID to this specific instructor's unique UID! 🔑
+    currentSessionId = userCredential.user.uid;
+
+    // Success! Hide auth gate, reveal the isolated Command Center 🎛️
     adminLoginSection.style.display = "none";
     adminDashboard.style.display = "block";
     
   } catch (error) {
-    console.error("Login Failed:", error);
-    alert("❌ Invalid Admin Credentials! Intruder alert!");
-    adminLoginBtn.textContent = "Secure Login 🛡️";
+    console.error("Auth Failed:", error);
+    alert("❌ Authentication Error: " + error.message);
+    adminLoginBtn.textContent = isSignUpMode ? "Create Account ✨" : "Secure Login 🛡️";
     adminLoginBtn.disabled = false;
   }
 });
 
 // ==========================================
-// 🚀 OPEN CLASS: GENERATE CODE LOGIC
+// 🚀 OPEN CLASS: GENERATE ISOLATED CODE
 // ==========================================
 generateCodeBtn.addEventListener("click", async () => {
-  // Generate a random 4-digit code (e.g., 4921)
   currentLiveCode = Math.floor(1000 + Math.random() * 9000).toString();
   
   generateCodeBtn.textContent = "Opening Class... ⏳";
   generateCodeBtn.disabled = true;
 
   try {
-    // Save this active session to Firebase! 🗄️
-    await setDoc(doc(db, "sessions", "active"), {
+    // Save session tied DIRECTLY to this instructor's UID! 🏢🗂️
+    await setDoc(doc(db, "sessions", currentSessionId), {
       code: currentLiveCode,
+      instructorId: currentSessionId,
       isOpen: true,
       createdAt: new Date().toISOString()
     });
 
-    // Update UI 🎨
     generateCodeBtn.style.display = "none";
     activeSessionDiv.style.display = "block";
     liveCodeDisplay.textContent = currentLiveCode;
 
-    // Start listening for students checking in! 👀
+    // Listen only for students checking into THIS instructor's active code! 👀
     startLiveListener();
 
   } catch (error) {
@@ -102,27 +153,27 @@ generateCodeBtn.addEventListener("click", async () => {
 // 👀 REAL-TIME LISTENER & TOAST LOGIC
 // ==========================================
 function startLiveListener() {
-  const q = query(collection(db, "live_attendees"), where("sessionCode", "==", currentLiveCode));
+  const q = query(
+    collection(db, "live_attendees"), 
+    where("instructorId", "==", currentSessionId),
+    where("sessionCode", "==", currentLiveCode)
+  );
   
   onSnapshot(q, (snapshot) => {
-    // 1. Update the giant counter 📈
     liveCount.textContent = snapshot.size;
-    
     adminAttendeeList.innerHTML = "";
+    
     if (snapshot.empty) {
       adminAttendeeList.innerHTML = '<p id="emptyState" style="text-align: center; color: var(--muted);">Waiting for students to join...</p>';
     }
 
-    // 2. Loop through every checked-in student
-    snapshot.forEach((doc) => {
-      const student = doc.data();
+    snapshot.forEach((docSnap) => {
+      const student = docSnap.data();
       
-      // Add them to the visual roster with their NAME and email! 📋📛
       const li = document.createElement("li");
       li.innerHTML = `<span>${student.name}</span> <span style="color: var(--muted); font-size: 0.9em; font-weight: normal; margin-left: auto;">${student.email}</span>`;
       adminAttendeeList.appendChild(li);
 
-      // 3. Trigger a Toast if this is a brand NEW student! 🍞💨
       if (!knownAttendees.has(student.email)) {
         knownAttendees.add(student.email);
         triggerToast(student.name, student.email);
@@ -131,7 +182,6 @@ function startLiveListener() {
   });
 }
 
-// The Toast Animation Function ✨
 function triggerToast(name, email) {
   const toast = document.createElement("div");
   toast.className = "toast";
@@ -146,7 +196,6 @@ function triggerToast(name, email) {
   
   toastContainer.appendChild(toast);
 
-  // Make it disappear after 5 seconds 💨
   setTimeout(() => {
     toast.style.animation = "slideOut 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards";
     setTimeout(() => toast.remove(), 400);
@@ -163,22 +212,23 @@ closeSessionBtn.addEventListener("click", async () => {
   closeSessionBtn.disabled = true;
 
   try {
-    // 1. Lock the session in Firebase so no one else can join 🔒
-    await setDoc(doc(db, "sessions", "active"), { isOpen: false }, { merge: true });
+    await setDoc(doc(db, "sessions", currentSessionId), { isOpen: false }, { merge: true });
 
-    // 2. Gather all the students to build the CSV (including Names!) 📊
     let csvContent = "data:text/csv;charset=utf-8,Status,Name,Email,Time\n";
     
-    const q = query(collection(db, "live_attendees"), where("sessionCode", "==", currentLiveCode));
+    const q = query(
+      collection(db, "live_attendees"), 
+      where("instructorId", "==", currentSessionId),
+      where("sessionCode", "==", currentLiveCode)
+    );
     const snapshot = await getDocs(q);
     
-    snapshot.forEach((doc) => {
-      const data = doc.data();
+    snapshot.forEach((docSnap) => {
+      const data = docSnap.data();
       const time = new Date(data.timestamp).toLocaleTimeString();
       csvContent += `Present,${data.name},${data.email},${time}\n`;
     });
 
-    // 3. Trigger the magic download! 📥
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
@@ -187,7 +237,6 @@ closeSessionBtn.addEventListener("click", async () => {
     link.click();
     link.remove();
 
-    // 4. Reset UI
     alert("✅ Class Closed and CSV Exported!");
     closeSessionBtn.textContent = "Session Closed 🔒";
 
@@ -197,6 +246,7 @@ closeSessionBtn.addEventListener("click", async () => {
     closeSessionBtn.disabled = false;
   }
 });
+
 // 🤖 Register Service Worker for PWA support
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {

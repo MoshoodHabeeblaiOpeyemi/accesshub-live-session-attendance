@@ -5,10 +5,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="icon" href="/IMG-20260824-WA0035.jpg">
-    <link rel="manifest" href="manifest.json">
-
     <link rel="stylesheet" href="style.css">
-    <title>AccessHub | Secure Admin</title>
+    <link rel="manifest" href="manifest.json">
+    <title>AccessHub | Multi-Tenant Admin</title>
 </head>
 
 <body>
@@ -19,7 +18,6 @@
             <span>Access<span>Hub</span> 👑 Admin</span>
         </a>
 
-        <!-- 👈 STRAY STUDENT ESCAPE HATCH -->
         <a href="index.html"
             style="color: var(--navy); text-decoration: none; font-weight: 600; font-size: 0.9rem; background: var(--light); padding: 8px 16px; border-radius: 6px; border: 1px solid var(--border); transition: background 0.2s;"
             onmouseover="this.style.background='var(--border)'" onmouseout="this.style.background='var(--light)'">
@@ -27,18 +25,25 @@
         </a>
     </header>
 
-    <!-- 🔒 THE SECURITY GATE (Real Firebase Auth) -->
+    <!-- 🔒 THE AUTH GATE (Supports Login & Sign Up!) -->
     <section class="registration" id="adminLoginSection" style="margin-top: 60px;">
         <div class="card-header" style="background: var(--navy); color: white;">
-            <h2>Admin Portal 🔐</h2>
+            <h2 id="authCardTitle">Instructor Portal 🔐</h2>
         </div>
+
         <form id="adminLoginForm" style="padding: 40px;">
-            <p style="text-align: center; color: var(--muted); margin-bottom: 20px;">Please authenticate to access the
-                command center.</p>
+            <p id="authSubtitle" style="text-align: center; color: var(--muted); margin-bottom: 20px;">Authenticate to
+                access your command center.</p>
+
+            <!-- Optional Name Field for Registration -->
+            <div class="field" id="nameFieldContainer" style="display: none;">
+                <label for="instructorName">Organization / Instructor Name</label>
+                <input id="instructorName" type="text" placeholder="e.g. CodeAcademy Inc.">
+            </div>
 
             <div class="field">
-                <label for="adminEmail">Admin Email</label>
-                <input id="adminEmail" type="email" required placeholder="admin@accesshub.com">
+                <label for="adminEmail">Email Address</label>
+                <input id="adminEmail" type="email" required placeholder="instructor@school.com">
             </div>
 
             <div class="field">
@@ -47,10 +52,18 @@
             </div>
 
             <button id="adminLoginBtn" type="submit" style="margin-top: 20px;">Secure Login 🛡️</button>
+
+            <!-- Toggle between Login and Sign Up -->
+            <p style="text-align: center; margin-top: 20px; font-size: 0.9rem; color: var(--muted);">
+                <span id="toggleText">New instructor?</span>
+                <button type="button" id="authModeToggleBtn"
+                    style="background: none; color: var(--teal); border: none; padding: 0; width: auto; display: inline; font-weight: bold; cursor: pointer;">Create
+                    an account</button>
+            </p>
         </form>
     </section>
 
-    <!-- 🎛️ THE HIDDEN COMMAND CENTER -->
+    <!-- 🎛️ THE ISOLATED COMMAND CENTER -->
     <main class="dashboard-container" id="adminDashboard">
 
         <!-- 1. SESSION CONTROLS -->
@@ -100,10 +113,8 @@
 
     </main>
 
-    <!-- The magic toast container! -->
     <div id="toastContainer"></div>
 
-    <!-- Linking to our upcoming JavaScript brain! 🧠 -->
     <script type="module" src="admin.js"></script>
 </body>
 
