@@ -1,6 +1,6 @@
 // 1. IMPORT FIREBASE TOOLS 🧰
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
-import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
 import { getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager, doc, setDoc, onSnapshot, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
 // 2. YOUR FIREBASE CONFIGURATION 🔗
@@ -25,6 +25,7 @@ const adminLoginSection = document.getElementById("adminLoginSection");
 const adminLoginForm = document.getElementById("adminLoginForm");
 const adminLoginBtn = document.getElementById("adminLoginBtn");
 const adminDashboard = document.getElementById("adminDashboard");
+const logoutBtn = document.getElementById("logoutBtn");
 
 const authCardTitle = document.getElementById("authCardTitle");
 const authSubtitle = document.getElementById("authSubtitle");
@@ -107,12 +108,42 @@ adminLoginForm.addEventListener("submit", async (e) => {
 
     adminLoginSection.style.display = "none";
     adminDashboard.style.display = "block";
+    logoutBtn.style.display = "inline-block"; // 👈 Show logout button on successful entry
     
   } catch (error) {
     console.error("Auth Failed:", error);
     alert("❌ Authentication Error: " + error.message);
     adminLoginBtn.textContent = isSignUpMode ? "Create Account ✨" : "Secure Login 🛡️";
     adminLoginBtn.disabled = false;
+  }
+});
+
+// ==========================================
+// 🚪 ADMIN LOGOUT LOGIC
+// ==========================================
+logoutBtn.addEventListener("click", async () => {
+  try {
+    await signOut(auth);
+    adminDashboard.style.display = "none";
+    adminLoginSection.style.display = "block";
+    logoutBtn.style.display = "none";
+    adminLoginForm.reset();
+    adminLoginBtn.textContent = "Secure Login 🛡️";
+    adminLoginBtn.disabled = false;
+    
+    // Reset session states & UI controls
+    currentSessionId = "";
+    currentLiveCode = "";
+    currentSessionTitle = "";
+    knownAttendees.clear();
+    sessionInputGroup.style.display = "block";
+    generateCodeBtn.style.display = "block";
+    generateCodeBtn.disabled = false;
+    generateCodeBtn.textContent = "Open Class & Generate Code 🚀";
+    activeSessionDiv.style.display = "none";
+  } catch (error) {
+    console.error("Logout error:", error);
+    alert("⚠️ Error signing out.");
   }
 });
 
@@ -134,7 +165,6 @@ generateCodeBtn.addEventListener("click", async () => {
   generateCodeBtn.disabled = true;
 
   try {
-    // Save session tied DIRECTLY to this instructor's UID with the Custom Title! 🏢🏫
     await setDoc(doc(db, "sessions", currentSessionId), {
       code: currentLiveCode,
       sessionTitle: currentSessionTitle,
@@ -224,7 +254,6 @@ closeSessionBtn.addEventListener("click", async () => {
   try {
     await setDoc(doc(db, "sessions", currentSessionId), { isOpen: false }, { merge: true });
 
-    // Clean CSV format wrapped in quotes for the time field to prevent Excel ### errors 📊
     let csvContent = "data:text/csv;charset=utf-8,Status,Name,Email,Time\n";
     
     const q = query(
