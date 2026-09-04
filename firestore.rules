@@ -1,0 +1,237 @@
+rules_version = '2';
+
+service cloud.firestore {
+
+  match /databases/{database}/documents {
+
+    // ==========================================
+    // 👨‍🏫 INSTRUCTORS
+    // ==========================================
+
+    // Each instructor can only access their own profile.
+
+    match /instructors/{instructorId} {
+
+      allow read, write: if request.auth != null
+                         && request.auth.uid == instructorId;
+
+    }
+
+    // ==========================================
+    // 📚 LIVE SESSIONS
+    // ==========================================
+
+    match /sessions/{sessionId} {
+
+      // Students need to read session information
+      // in order to verify a live access code.
+
+      allow read: if true;
+
+      // An instructor can only create a session
+      // using their own Firebase UID as the document ID.
+
+      allow create: if request.auth != null
+                    && request.auth.uid == sessionId
+                    && request.resource.data.instructorId == request.auth.uid;
+
+      // Only the instructor who owns the session
+      // can update or delete it.
+
+      allow update, delete: if request.auth != null
+                            && request.auth.uid == sessionId
+                            && resource.data.instructorId == request.auth.uid;
+
+    }
+
+    // ==========================================
+    // 👨‍🎓 LIVE ATTENDANCE RECORDS
+    // ==========================================
+
+    match /live_attendees/{attendeeId} {
+
+      // ------------------------------------------
+      // CREATE ATTENDANCE
+      // ------------------------------------------
+      //
+      // The student MUST be signed in (anonymously
+      // is fine — Firebase Auth handles this silently
+      // on the student page with no visible login).
+      //
+      // Firestore independently verifies that:
+      //
+      //  1.  Student is authenticated (anonymous auth)
+      //  2.  Required fields exist — no more, no less
+      //  3.  All fields are correct data types
+      //  4.  Name and email lengths are sane
+      //  5.  The session document exists
+      //  6.  The session is currently open
+      //  7.  The submitted code matches the session
+      //  8.  The instructorId matches the session owner
+      //  9.  The deviceId in the record matches the
+      //      authenticated anonymous UID — this is
+      //      the hard-block: client cannot forge a
+      //      different UID here
+      // 10.  The document ID follows the deterministic
+      //      format: instructorId_sessionCode_anonUID
+      //      — Firestore rejects any CREATE that would
+      //      produce a duplicate ID, meaning one device
+      //      gets exactly one record per session
+      //
+
+      allow create: if
+
+        // ------------------------------------------
+        // 1. REQUIRE AUTHENTICATION (anonymous ok)
+        // ------------------------------------------
+        //
+        // This is the key change from the previous
+        // rules. Students are silently signed in with
+        // Firebase Anonymous Auth before submitting.
+        // The anonymous UID is stable per browser/device
+        // and persists in IndexedDB — not localStorage.
+        //
+
+        request.auth != null
+
+        // ------------------------------------------
+        // 2. REQUIRED FIELDS ONLY — NO EXTRAS
+        // ------------------------------------------
+
+        && request.resource.data.keys().hasOnly([
+          "instructorId",
+          "name",
+          "email",
+          "sessionCode",
+          "sessionTitle",
+          "deviceId",
+          "timestamp"
+        ])
+
+        && request.resource.data.keys().hasAll([
+          "instructorId",
+          "name",
+          "email",
+          "sessionCode",
+          "sessionTitle",
+          "deviceId",
+          "timestamp"
+        ])
+
+        // ------------------------------------------
+        // 3. DATA TYPE VALIDATION
+        // ------------------------------------------
+
+        && request.resource.data.instructorId is string
+        && request.resource.data.name         is string
+        && request.resource.data.email        is string
+        && request.resource.data.sessionCode  is string
+        && request.resource.data.sessionTitle is string
+        && request.resource.data.deviceId     is string
+        && request.resource.data.timestamp    is string
+
+        // ------------------------------------------
+        // 4. FIELD LENGTH SANITY CHECKS
+        // ------------------------------------------
+
+        && request.resource.data.name.size()        >= 2
+        && request.resource.data.name.size()        <= 50
+        && request.resource.data.email.size()       >= 5
+        && request.resource.data.email.size()       <= 100
+        && request.resource.data.sessionCode.size() >= 6
+        && request.resource.data.sessionCode.size() <= 20
+
+        // ------------------------------------------
+        // 5. VERIFY THE SESSION EXISTS
+        // ------------------------------------------
+
+        && exists(
+          /databases/$(database)/documents/sessions/$(request.resource.data.instructorId)
+        )
+
+        // ------------------------------------------
+        // 6. VERIFY SESSION IS OPEN
+        // ------------------------------------------
+
+        && get(
+          /databases/$(database)/documents/sessions/$(request.resource.data.instructorId)
+        ).data.isOpen == true
+
+        // ------------------------------------------
+        // 7. VERIFY SESSION CODE MATCHES
+        // ------------------------------------------
+
+        && get(
+          /databases/$(database)/documents/sessions/$(request.resource.data.instructorId)
+        ).data.code == request.resource.data.sessionCode
+
+        // ------------------------------------------
+        // 8. VERIFY INSTRUCTOR OWNERSHIP
+        // ------------------------------------------
+
+        && get(
+          /databases/$(database)/documents/sessions/$(request.resource.data.instructorId)
+        ).data.instructorId == request.resource.data.instructorId
+
+        // ------------------------------------------
+        // 9. DEVICE ID MUST MATCH THE AUTHENTICATED UID
+        // ------------------------------------------
+        //
+        // The client writes their anonymous UID as
+        // the deviceId field. This rule verifies that
+        // the value they wrote actually matches the
+        // UID Firebase Auth assigned to this request.
+        //
+        // A malicious client CANNOT forge this — they
+        // cannot set deviceId to someone else's UID
+        // because request.auth.uid is server-assigned.
+        //
+
+        && request.resource.data.deviceId == request.auth.uid
+
+        // ------------------------------------------
+        // 10. DETERMINISTIC DOCUMENT ID
+        // ------------------------------------------
+        //
+        // Format:
+        //   instructorId_sessionCode_anonUID
+        //
+        // Because the anonUID is device-bound and
+        // verified in rule 9, the same device cannot
+        // produce a different document ID for the same
+        // session — Firestore will always reject the
+        // second CREATE as a duplicate.
+        //
+        // This is the hard block at the database level.
+        //
+
+        && attendeeId ==
+            request.resource.data.instructorId
+            + "_"
+            + request.resource.data.sessionCode
+            + "_"
+            + request.auth.uid;
+
+      // ------------------------------------------
+      // READ ATTENDANCE
+      // ------------------------------------------
+
+      // Only the instructor who owns an attendance
+      // record can view it.
+
+      allow read: if request.auth != null
+                  && resource.data.instructorId == request.auth.uid;
+
+      // ------------------------------------------
+      // NO EDITING OR DELETING FROM THE CLIENT
+      // ------------------------------------------
+
+      // Attendance records remain immutable once created.
+
+      allow update, delete: if false;
+
+    }
+
+  }
+
+}

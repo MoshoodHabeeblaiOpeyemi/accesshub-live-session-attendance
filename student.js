@@ -5,6 +5,12 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
 
 import {
+  getAuth,
+  signInAnonymously,
+  onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+
+import {
   initializeFirestore,
   persistentLocalCache,
   persistentMultipleTabManager,
@@ -43,6 +49,8 @@ const db = initializeFirestore(app, {
   })
 });
 
+const auth = getAuth(app);
+
 
 // ==========================================
 // 🎯 GRAB UI ELEMENTS
@@ -64,12 +72,206 @@ const emailInput = document.getElementById("studentEmail");
 
 const codeInput = document.getElementById("liveAccessCode");
 
+const toastContainer = document.getElementById("toastContainer");
+
+const modalOverlay = document.getElementById("modalOverlay");
+
+const modalIcon = document.getElementById("modalIcon");
+
+const modalTitle = document.getElementById("modalTitle");
+
+const modalBody = document.getElementById("modalBody");
+
+const modalFooter = document.getElementById("modalFooter");
+
 
 // ==========================================
 // 📦 SESSION DATA
 // ==========================================
 
 let verifiedSessionData = null;
+
+// The anonymous Firebase Auth UID for this device/browser.
+// Populated once on load — stays stable across tabs and
+// survives page refreshes. This is the hard-block key.
+let anonUid = null;
+
+
+// ==========================================
+// 👤 SILENT ANONYMOUS SIGN-IN
+// ==========================================
+//
+// Firebase Auth persists anonymous sessions in
+// IndexedDB — not localStorage. This means:
+//
+//   ✅ Survives page refresh
+//   ✅ Survives opening new tabs
+//   ✅ Survives clearing localStorage manually
+//   ✅ Same UID across all tabs in the same browser
+//   ❌ New private/incognito window = new UID
+//      (but that's the absolute limit without
+//       a real login system)
+//
+
+onAuthStateChanged(auth, async (user) => {
+
+  if (user) {
+
+    // Existing anonymous session restored
+    anonUid = user.uid;
+
+  } else {
+
+    // No session — create one silently
+    try {
+
+      const credential = await signInAnonymously(auth);
+
+      anonUid = credential.user.uid;
+
+    } catch (error) {
+
+      console.error("Anonymous sign-in failed:", error);
+
+      // Non-fatal: form will catch the missing UID on submit
+    }
+
+  }
+
+});
+
+
+// ==========================================
+// 🔔 SHOW TOAST
+// ==========================================
+//
+// type: "success" | "error" | "warning"
+//
+
+function showToast(message, type = "error") {
+
+  const icons = {
+    success: "✅",
+    error: "❌",
+    warning: "⚠️"
+  };
+
+  const toast = document.createElement("div");
+
+  toast.className = `toast toast--${type}`;
+
+
+  const icon = document.createElement("div");
+
+  icon.style.fontSize = "1.6rem";
+
+  icon.textContent = icons[type] ?? "ℹ️";
+
+
+  const content = document.createElement("div");
+
+  content.style.fontSize = "0.95rem";
+
+  content.style.color = "var(--navy)";
+
+  content.style.lineHeight = "1.5";
+
+  content.textContent = message;
+
+
+  toast.appendChild(icon);
+
+  toast.appendChild(content);
+
+  toastContainer.appendChild(toast);
+
+
+  setTimeout(() => {
+
+    toast.style.animation =
+      "slideOut 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards";
+
+    setTimeout(() => toast.remove(), 400);
+
+  }, 4500);
+
+}
+
+
+// ==========================================
+// 🪟 SHOW MODAL
+// ==========================================
+//
+// For simple info/alert modals (one OK button),
+// call: showModal({ icon, title, message })
+//
+// Returns a Promise that resolves when dismissed.
+//
+
+function showModal({ icon = "ℹ️", title, message }) {
+
+  return new Promise((resolve) => {
+
+    modalIcon.textContent = icon;
+
+    modalTitle.textContent = title;
+
+    modalBody.textContent = message;
+
+    modalFooter.innerHTML = "";
+
+
+    const okBtn = document.createElement("button");
+
+    okBtn.textContent = "OK";
+
+    okBtn.className = "modal-btn-confirm";
+
+    okBtn.style.background = "var(--teal)";
+
+    okBtn.addEventListener("click", () => {
+
+      closeModal();
+
+      resolve();
+
+    });
+
+
+    modalFooter.appendChild(okBtn);
+
+    modalOverlay.classList.remove("hidden");
+
+    okBtn.focus();
+
+  });
+
+}
+
+
+// ==========================================
+// 🔒 CLOSE MODAL
+// ==========================================
+
+function closeModal() {
+
+  modalOverlay.classList.add("hidden");
+
+  modalFooter.innerHTML = "";
+
+}
+
+
+// Close modal on overlay click (outside the box)
+modalOverlay.addEventListener("click", (e) => {
+
+  if (e.target === modalOverlay) {
+
+    closeModal();
+
+  }
+
+});
 
 
 // ==========================================
@@ -91,20 +293,22 @@ function normalizeSessionCode(code) {
 //
 // Format:
 //
-// instructorId_sessionCode_email
+// instructorId_sessionCode_anonUID
 //
 // Example:
 //
-// abc123_AH-X7K92P_john@gmail.com
+// abc123_AH-X7K92P_firebaseAnonUID456
 //
-// Because this ID is predictable, the same
-// email cannot create another attendance
-// record for the same instructor/session.
+// The anonUID is device-bound (persisted in
+// IndexedDB by Firebase Auth). The same device
+// cannot create a second attendance record for
+// the same instructor/session, regardless of
+// what name or email they enter.
 //
 
-function createAttendanceId(instructorId, sessionCode, email) {
+function createAttendanceId(instructorId, sessionCode, uid) {
 
-  return `${instructorId}_${sessionCode}_${email}`;
+  return `${instructorId}_${sessionCode}_${uid}`;
 }
 
 
@@ -327,6 +531,25 @@ form.addEventListener(
 
 
     // ==========================================
+    // 🔐 ENSURE ANONYMOUS AUTH IS READY
+    // ==========================================
+    //
+    // If sign-in hasn't completed yet (slow network
+    // on first load), block submission and explain.
+    //
+
+    if (!anonUid) {
+
+      showToast(
+        "Your session is still being set up. Please wait a moment and try again.",
+        "warning"
+      );
+
+      return;
+    }
+
+
+    // ==========================================
     // ⏱️ RATE LIMITER
     // ==========================================
 
@@ -338,15 +561,13 @@ form.addEventListener(
 
 
     if (
-
       lastAttempt &&
-
       now - lastAttempt < 5000
-
     ) {
 
-      alert(
-        "⏳ Please wait a few seconds before trying again."
+      showToast(
+        "Please wait a few seconds before trying again.",
+        "warning"
       );
 
       resetButton();
@@ -356,11 +577,8 @@ form.addEventListener(
 
 
     localStorage.setItem(
-
       "last_checkin_attempt",
-
       now
-
     );
 
 
@@ -383,14 +601,14 @@ form.addEventListener(
     // 🔍 VALIDATE NAME
     // ==========================================
 
-    const nameRegex =
-      /^[a-zA-Z\s'-]{2,50}$/;
+    const nameRegex = /^[a-zA-Z\s'-]{2,50}$/;
 
 
     if (!nameRegex.test(name)) {
 
-      alert(
-        "❌ Please enter a valid name using letters only."
+      showToast(
+        "Please enter a valid name using letters only.",
+        "error"
       );
 
       nameInput.focus();
@@ -405,17 +623,18 @@ form.addEventListener(
     // 📧 VALIDATE EMAIL
     // ==========================================
 
-    // Slash is excluded because the email
-    // becomes part of the Firestore document ID.
+    // Slash is excluded because the email was
+    // previously part of the Firestore document ID.
+    // Keeping the restriction as a safe default.
 
-    const emailRegex =
-      /^[^\s@/]+@[^\s@/]+\.[^\s@/]+$/;
+    const emailRegex = /^[^\s@/]+@[^\s@/]+\.[^\s@/]+$/;
 
 
     if (!emailRegex.test(email)) {
 
-      alert(
-        "❌ Please enter a valid email address."
+      showToast(
+        "Please enter a valid email address.",
+        "error"
       );
 
       emailInput.focus();
@@ -430,14 +649,14 @@ form.addEventListener(
     // 🔐 VALIDATE SESSION CODE
     // ==========================================
 
-    const codeRegex =
-      /^AH-[A-Z0-9]{5,8}$/;
+    const codeRegex = /^AH-[A-Z0-9]{5,8}$/;
 
 
     if (!codeRegex.test(code)) {
 
-      alert(
-        "❌ Invalid AccessHub session code."
+      showToast(
+        "Invalid AccessHub session code.",
+        "error"
       );
 
       codeInput.focus();
@@ -452,8 +671,7 @@ form.addEventListener(
     // ⏳ LOADING STATE
     // ==========================================
 
-    checkInBtn.textContent =
-      "Verifying & Checking In... ⏳";
+    checkInBtn.textContent = "Verifying & Checking In... ⏳";
 
     checkInBtn.disabled = true;
 
@@ -476,16 +694,15 @@ form.addEventListener(
       );
 
 
-      const sessionSnapshot =
-        await getDocs(sessionsQuery);
+      const sessionSnapshot = await getDocs(sessionsQuery);
 
 
       // No active session found
-
       if (sessionSnapshot.empty) {
 
-        alert(
-          "❌ Invalid session code or this session is currently closed."
+        showToast(
+          "Invalid session code or this session is currently closed.",
+          "error"
         );
 
         resetButton();
@@ -494,45 +711,32 @@ form.addEventListener(
       }
 
 
-      const sessionDoc =
-        sessionSnapshot.docs[0];
+      const sessionDoc = sessionSnapshot.docs[0];
 
+      const sessionData = sessionDoc.data();
 
-      const sessionData =
-        sessionDoc.data();
+      const instructorId = sessionData.instructorId;
 
-
-      const instructorId =
-        sessionData.instructorId;
-
-
-      const sessionTitle =
-        sessionData.sessionTitle ||
-        "Live Session";
+      const sessionTitle = sessionData.sessionTitle || "Live Session";
 
 
       // ==========================================
       // ⏰ SESSION EXPIRY CHECK
       // ==========================================
 
-      const threeHoursAgo =
-
-        new Date(
-          Date.now() -
-          3 * 60 * 60 * 1000
-        ).toISOString();
+      const threeHoursAgo = new Date(
+        Date.now() - 3 * 60 * 60 * 1000
+      ).toISOString();
 
 
       if (
-
         sessionData.createdAt &&
-
         sessionData.createdAt < threeHoursAgo
-
       ) {
 
-        alert(
-          "❌ This session has expired. Please ask your instructor for a new session code."
+        showToast(
+          "This session has expired. Please ask your instructor for a new session code.",
+          "error"
         );
 
         resetButton();
@@ -544,66 +748,64 @@ form.addEventListener(
       // ==========================================
       // 🆔 CREATE DETERMINISTIC ATTENDANCE ID
       // ==========================================
+      //
+      // The document ID is now keyed on the
+      // anonymous UID — not the email.
+      //
+      // This means one device = one attendance
+      // record per session, regardless of what
+      // name or email is entered on that device.
+      //
 
-      const attendanceId =
-        createAttendanceId(
-
-          instructorId,
-
-          code,
-
-          email
-
-        );
+      const attendanceId = createAttendanceId(
+        instructorId,
+        code,
+        anonUid
+      );
 
 
       // ==========================================
       // 🛡️ CREATE ATTENDANCE RECORD
       // ==========================================
       //
-      // We use setDoc with a deterministic ID.
+      // setDoc with a deterministic ID.
       //
-      // The Firestore Rules only allow CREATE.
+      // Firestore Rules enforce:
+      //   - request.auth != null (anon auth)
+      //   - document ID = instructorId_code_anonUID
+      //   - no document with this ID already exists
+      //     (create-only, no update allowed)
       //
-      // If this document already exists,
-      // Firestore rejects the request.
-      //
-      // This gives us database-level duplicate
-      // prevention.
+      // This gives us database-level hard blocking.
       //
 
       const attendanceRef = doc(
-
         db,
-
         "live_attendees",
-
         attendanceId
-
       );
 
 
-      await setDoc(
+      await setDoc(attendanceRef, {
 
-        attendanceRef,
+        instructorId: instructorId,
 
-        {
+        name: name,
 
-          instructorId: instructorId,
+        email: email,
 
-          name: name,
+        sessionCode: code,
 
-          email: email,
+        sessionTitle: sessionTitle,
 
-          sessionCode: code,
+        // deviceId stored for audit trail —
+        // lets instructor see if suspicious
+        // patterns emerge (same UID, diff emails)
+        deviceId: anonUid,
 
-          sessionTitle: sessionTitle,
+        timestamp: new Date().toISOString()
 
-          timestamp: new Date().toISOString()
-
-        }
-
-      );
+      });
 
 
       // ==========================================
@@ -691,30 +893,25 @@ form.addEventListener(
     } catch (error) {
 
 
-      console.error(
-        "Check-in error:",
-        error
-      );
+      console.error("Check-in error:", error);
 
 
       // ==========================================
       // 🚫 HANDLE DUPLICATE / SECURITY ERRORS
       // ==========================================
 
-      if (
+      if (error.code === "permission-denied") {
 
-        error.code === "permission-denied"
-
-      ) {
-
-        alert(
-          "⚠️ Check-in could not be completed. You may have already checked in for this session, or the session is no longer active."
+        showToast(
+          "You have already marked attendance for this session on this device.",
+          "warning"
         );
 
       } else {
 
-        alert(
-          "⚠️ Connection error. Please check your internet and try again."
+        showToast(
+          "Connection error. Please check your internet and try again.",
+          "error"
         );
 
       }
@@ -735,41 +932,29 @@ form.addEventListener(
 
 if ("serviceWorker" in navigator) {
 
-  window.addEventListener(
+  window.addEventListener("load", () => {
 
-    "load",
+    navigator.serviceWorker
+      .register("/sw.js")
 
-    () => {
+      .then((registration) => {
 
-      navigator.serviceWorker
-        .register("/sw.js")
+        console.log(
+          "Service Worker registered! Scope:",
+          registration.scope
+        );
 
-        .then((registration) => {
+      })
 
-          console.log(
+      .catch((error) => {
 
-            "Service Worker registered! Scope:",
+        console.log(
+          "Service Worker registration failed:",
+          error
+        );
 
-            registration.scope
+      });
 
-          );
-
-        })
-
-        .catch((error) => {
-
-          console.log(
-
-            "Service Worker registration failed:",
-
-            error
-
-          );
-
-        });
-
-    }
-
-  );
+  });
 
 }
